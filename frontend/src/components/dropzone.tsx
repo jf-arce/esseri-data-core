@@ -11,6 +11,7 @@ interface DropzoneProps {
   disabled?: boolean
   label?: string
   hint?: string
+  inputLabel?: string
   className?: string
 }
 
@@ -22,6 +23,7 @@ function Dropzone({
   disabled,
   label = 'Arrastrá el archivo o hacé clic para adjuntar',
   hint,
+  inputLabel,
   className,
 }: DropzoneProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -42,7 +44,7 @@ function Dropzone({
         className,
       )}
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps({ 'aria-label': inputLabel })} />
       <UploadIcon className="size-5" />
       <span>{label}</span>
       {hint && <span className="text-xs">{hint}</span>}

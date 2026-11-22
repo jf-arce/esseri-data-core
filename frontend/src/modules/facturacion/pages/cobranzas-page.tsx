@@ -1,5 +1,7 @@
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
+import { HistoryIcon } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DebitosGenerarPage } from '@/modules/facturacion/pages/debitos-generar-page'
@@ -51,66 +53,63 @@ export function CobranzasPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full flex-col gap-5 text-[13px] leading-[1.4] [&_.text-sm]:text-[13px] [&_.text-sm]:leading-[18px]">
-      <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-          Facturación y cobranza
-        </p>
-        <PageHeader
-          titulo="Débitos automáticos"
-          accion={
-            <Button asChild variant="secondary">
-              <Link to="/facturacion">Volver a facturas</Link>
-            </Button>
-          }
-        />
-        <p className="max-w-prose text-sm text-texto-2">
-          Armá el lote de cobro, importá los resultados y revisá el historial. La confirmación de la
-          importación es la única acción que registra pagos.
-        </p>
-      </div>
+    <div className="flex min-w-0 w-full flex-col gap-5">
+      <PageHeader
+        titulo="Débitos automáticos"
+        chip={<Badge variant="info">Débito por CBU</Badge>}
+        descripcion="Generá el lote, importá la respuesta del banco y registrá los pagos."
+        accion={
+          <Button
+            aria-label="Historial de lotes"
+            aria-pressed={pestana === 'historial'}
+            className="shrink-0"
+            onClick={() => cambiarPestana('historial')}
+          >
+            <HistoryIcon data-icon="inline-start" />
+            <span className="@xl/main:hidden">Historial</span>
+            <span className="hidden @xl/main:inline">Historial de lotes</span>
+          </Button>
+        }
+      />
 
       <Tabs value={pestana} onValueChange={cambiarPestana} className="min-w-0">
-        <TabsList className="group-data-horizontal/tabs:h-auto mt-1 w-full max-w-full justify-start gap-0 overflow-x-auto border-b border-borde">
-          <TabsTrigger
-            value="generar"
-            aria-label="Generar lote"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
-          >
+        <TabsList className="w-full max-w-full justify-start overflow-x-auto">
+          <TabsTrigger value="generar" aria-label="Generar lote">
+            <NumeroPaso numero={1} />
             <span className="@xl/main:hidden">Generar</span>
             <span className="hidden @xl/main:inline">Generar lote</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="importar"
-            aria-label="Importar resultados"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
-          >
+          <TabsTrigger value="importar" aria-label="Importar resultados">
+            <NumeroPaso numero={2} />
             <span className="@xl/main:hidden">Importar</span>
             <span className="hidden @xl/main:inline">Importar resultados</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="historial"
-            aria-label="Historial de lotes"
-            className="mr-1 px-4 py-3 text-[15px] tracking-tight @xl/main:mr-2"
-          >
-            <span className="@xl/main:hidden">Historial</span>
-            <span className="hidden @xl/main:inline">Historial de lotes</span>
-          </TabsTrigger>
         </TabsList>
-        <TabsContent value="generar" className="min-w-0 pt-3">
+        <TabsContent value="generar" className="min-w-0 pt-4">
           <DebitosGenerarPage onIrAImportar={irAImportar} />
         </TabsContent>
-        <TabsContent value="importar" className="min-w-0 pt-3">
+        <TabsContent value="importar" className="min-w-0 pt-4">
           <DebitosImportarPage
             importacionId={importacionId}
             onImportacionChange={cambiarImportacion}
             onIrAHistorial={() => cambiarPestana('historial')}
           />
         </TabsContent>
-        <TabsContent value="historial" className="min-w-0 pt-3">
+        <TabsContent value="historial" className="min-w-0 pt-4">
           <DebitosHistorialPage onContinuarRevision={continuarRevision} onImportar={irAImportar} />
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+function NumeroPaso({ numero }: { numero: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-5 shrink-0 items-center justify-center rounded-full bg-violeta-suave text-xs font-semibold tabular-nums text-violeta"
+    >
+      {numero}
+    </span>
   )
 }

@@ -25,12 +25,9 @@ export function DebitosLiberaciones({
   return (
     <section
       aria-label="Registro de liberaciones"
-      className="min-w-0 w-full rounded-panel border border-borde bg-superficie p-5 shadow-card"
+      className="min-w-0 w-full border-t border-borde px-5 pb-5 pt-3"
     >
-      <h2 className="text-base font-semibold text-texto">Registro de liberaciones</h2>
-      <p className="mt-0.5 text-xs text-texto-2">
-        Quién liberó cada lote, cuándo y por qué motivo.
-      </p>
+      <p className="text-xs text-texto-3">Quién liberó cada lote, cuándo y por qué motivo.</p>
 
       {error && (
         <Alert variant="error" className="mt-3">
@@ -45,9 +42,12 @@ export function DebitosLiberaciones({
       )}
 
       {cargando && !error && (
-        <div className="mt-4 flex flex-col gap-2">
-          <Skeleton className="h-4 w-full max-w-xl" />
-          <Skeleton className="h-4 w-full max-w-md" />
+        <div role="presentation" className="mt-3 flex flex-col divide-y divide-borde">
+          {['max-w-2xl', 'max-w-xl', 'max-w-2xl'].map((ancho, indice) => (
+            <div key={indice} className="py-3">
+              <Skeleton className={`h-4 w-full ${ancho}`} />
+            </div>
+          ))}
         </div>
       )}
 

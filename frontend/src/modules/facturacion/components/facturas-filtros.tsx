@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { normalizarTexto } from '@/lib/texto'
-import { ChevronsUpDownIcon } from 'lucide-react'
 import { FilterBar, FilterBarSpacer } from '@/components/filter-bar'
-import { FilterChip, FilterChips, FilterDropdown } from '@/components/filter-dropdown'
-import { Button } from '@/components/ui/button'
+import {
+  FilterChip,
+  FilterChips,
+  FilterDropdown,
+  FilterTrigger,
+} from '@/components/filter-dropdown'
 import {
   Command,
   CommandEmpty,
@@ -109,14 +112,16 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
       <FilterBar>
         <Popover open={abiertoFamilia} onOpenChange={setAbiertoFamilia}>
           <PopoverTrigger asChild>
-            <Button variant="secondary" className="h-10" aria-expanded={abiertoFamilia}>
-              <span className="max-w-48 truncate">
-                {familiaSeleccionada
+            <FilterTrigger
+              label={
+                familiaSeleccionada
                   ? `${familiaSeleccionada.persona_apellido}, ${familiaSeleccionada.persona_nombre}`
-                  : 'Familia'}
-              </span>
-              <ChevronsUpDownIcon data-icon="inline-end" />
-            </Button>
+                  : 'Familia'
+              }
+              active={familiaResponsableId !== ''}
+              className="max-w-64 [&_svg]:shrink-0"
+              aria-expanded={abiertoFamilia}
+            />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>
@@ -152,14 +157,16 @@ export function FacturasFiltros(props: FacturasFiltrosProps) {
         </Popover>
         <Popover open={abierto} onOpenChange={setAbierto}>
           <PopoverTrigger asChild>
-            <Button variant="secondary" className="h-10" aria-expanded={abierto}>
-              <span className="max-w-48 truncate">
-                {alumnoSeleccionado
+            <FilterTrigger
+              label={
+                alumnoSeleccionado
                   ? `${alumnoSeleccionado.persona_apellido}, ${alumnoSeleccionado.persona_nombre}`
-                  : 'Alumno'}
-              </span>
-              <ChevronsUpDownIcon data-icon="inline-end" />
-            </Button>
+                  : 'Alumno'
+              }
+              active={alumnoId !== ''}
+              className="max-w-64 [&_svg]:shrink-0"
+              aria-expanded={abierto}
+            />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>

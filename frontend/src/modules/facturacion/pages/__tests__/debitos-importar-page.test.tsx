@@ -188,7 +188,8 @@ describe('DebitosImportarPage', () => {
 
     await subirArchivo(user, 'respuesta')
 
-    expect(await screen.findByText('Procesados')).toBeInTheDocument()
+    // El esqueleto ya muestra el rótulo; se espera el dato real para no tomar un nodo que se desmonta.
+    expect(await screen.findByText('Se registrarán pagos')).toBeInTheDocument()
     await waitFor(() => expect(vi.mocked(previsualizarRespuestaDebitos)).toHaveBeenCalled())
     const confirmar = await screen.findByRole('button', {
       name: 'Confirmar y registrar 401 pagos',
@@ -266,6 +267,7 @@ describe('DebitosImportarPage', () => {
     await subirArchivo(user, 'primera')
     expect(await screen.findByText('438')).toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: 'Reemplazar archivo' }))
     await subirArchivo(user, 'segunda')
 
     await waitFor(() => expect(vi.mocked(previsualizarRespuestaDebitos)).toHaveBeenCalledTimes(2))
@@ -307,7 +309,7 @@ describe('DebitosImportarPage', () => {
 
   it('muestra el vacío inicial, el error con reintento y la carga', async () => {
     renderPage(null)
-    expect(screen.getByText('Todavía no cargaste un archivo de resultados.')).toBeInTheDocument()
+    expect(screen.getByText(/Arrastrá el archivo de respuesta del banco/)).toBeInTheDocument()
 
     vi.mocked(obtenerImportacionDebitos).mockImplementationOnce(() => new Promise(() => undefined))
     renderPage('imp-1')

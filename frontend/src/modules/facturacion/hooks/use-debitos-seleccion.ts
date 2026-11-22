@@ -184,8 +184,10 @@ export function useDebitosSeleccion({
     seleccion,
     seleccionadas: idsPagina,
     excluidos,
-    resumen: resumenVigente ? resumenResultado.datos : RESUMEN_VACIO,
-    cargandoResumen: !resumenVigente,
+    // Tras la primera respuesta se conserva el último resumen mientras llega el nuevo, así los
+    // números no parpadean en cada cambio de selección o de filtro.
+    resumen: resumenResultado.datos,
+    cargandoResumen: resumenResultado.clave === null,
     errorResumen: resumenVigente ? resumenResultado.error : null,
     recargarResumen: () => setRevisionResumen((actual) => actual + 1),
     total,

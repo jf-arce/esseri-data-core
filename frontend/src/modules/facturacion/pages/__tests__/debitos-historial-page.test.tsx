@@ -269,13 +269,11 @@ describe('DebitosHistorialPage', () => {
     expect(screen.getByText('Pagos registrados')).toBeInTheDocument()
     expect(screen.getByText('Liberado')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-001' }))
-    expect(screen.getByRole('menuitem', { name: 'Importar resultados' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Liberar lote' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
+    expect(screen.getAllByRole('button', { name: 'Importar resultados' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Continuar revisión' })).toHaveLength(1)
 
-    await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-002' }))
-    expect(screen.getByRole('menuitem', { name: 'Continuar revisión' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-001' }))
+    expect(screen.getByRole('menuitem', { name: 'Liberar lote' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
 
     await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-09-001' }))
@@ -292,8 +290,8 @@ describe('DebitosHistorialPage', () => {
     renderPage()
 
     expect(await screen.findByText('LD-2026-10-001')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Importar resultados' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-001' }))
-    expect(screen.getByRole('menuitem', { name: 'Importar resultados' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Liberar lote' })).not.toBeInTheDocument()
   })
 
@@ -303,8 +301,7 @@ describe('DebitosHistorialPage', () => {
     renderPage({ onContinuarRevision })
 
     await screen.findByText('LD-2026-10-002')
-    await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-002' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Continuar revisión' }))
+    await user.click(screen.getByRole('button', { name: 'Continuar revisión' }))
 
     expect(onContinuarRevision).toHaveBeenCalledWith('imp-1')
   })
@@ -315,8 +312,7 @@ describe('DebitosHistorialPage', () => {
     renderPage({ onImportar })
 
     await screen.findByText('LD-2026-10-001')
-    await user.click(screen.getByRole('button', { name: 'Acciones del lote LD-2026-10-001' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Importar resultados' }))
+    await user.click(screen.getAllByRole('button', { name: 'Importar resultados' })[0])
 
     expect(onImportar).toHaveBeenCalled()
   })
@@ -421,8 +417,10 @@ describe('DebitosHistorialPage', () => {
   })
 
   it('muestra el registro de liberaciones con usuario, fecha y motivo', async () => {
+    const user = userEvent.setup()
     renderPage()
 
+    await user.click(await screen.findByRole('button', { name: /^Liberaciones/ }))
     expect(await screen.findByText(/Administración liberó LD-2026-09-002/)).toBeInTheDocument()
     expect(screen.getByText(/Banco rechazó el archivo completo/)).toBeInTheDocument()
   })
@@ -453,8 +451,10 @@ describe('DebitosHistorialPage', () => {
       pagina: 1,
       tamanio: 25,
     })
+    const user = userEvent.setup()
     renderPage()
     expect(await screen.findByText('Todavía no hay lotes exportados.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Liberaciones/ }))
     expect(screen.getByText('Todavía no se liberó ningún lote.')).toBeInTheDocument()
   })
 })

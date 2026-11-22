@@ -3,9 +3,10 @@ import { useParams } from 'react-router'
 import { descargarExport } from '@/lib/descargar-export'
 import { formatearFechaHora } from '@/lib/fechas'
 import { BackLink } from '@/components/back-link'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FormularioPagoFactura } from '@/modules/facturacion/components/formulario-pago-factura'
@@ -61,30 +62,25 @@ export function FacturaDetallePage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 py-4">
       <BackLink to="/facturacion" label="Volver a facturas" />
 
-      <header className="flex flex-col justify-between gap-4 @xl/main:flex-row @xl/main:items-end">
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-bold tracking-widest text-texto-3 uppercase">
-            Facturación y cobranza
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-texto">
-            Factura #{factura.id.slice(0, 8)}
-          </h1>
-        </div>
-        <Button variant="secondary" onClick={descargarPdf}>
-          <DownloadIcon data-icon="inline-start" /> Descargar PDF
-        </Button>
-      </header>
+      <PageHeader
+        titulo={`Factura #${factura.id.slice(0, 8)}`}
+        chip={
+          <Badge variant={VARIANTE_ESTADO[factura.estado]}>
+            {etiquetaEstadoFactura(factura.estado)}
+          </Badge>
+        }
+        accion={
+          <Button variant="secondary" onClick={descargarPdf}>
+            <DownloadIcon data-icon="inline-start" /> Descargar PDF
+          </Button>
+        }
+      />
 
       <div className="grid gap-6 @5xl/main:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.9fr)] @5xl/main:items-start">
         <div className="flex flex-col gap-5">
           <Card>
             <CardHeader className="border-b border-borde">
               <CardTitle>Datos de la factura</CardTitle>
-              <CardAction>
-                <Badge variant={VARIANTE_ESTADO[factura.estado]}>
-                  {etiquetaEstadoFactura(factura.estado)}
-                </Badge>
-              </CardAction>
             </CardHeader>
             <CardContent>
               <dl className="grid gap-x-8 gap-y-3 text-sm @xl/main:grid-cols-2">

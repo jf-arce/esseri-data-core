@@ -264,18 +264,13 @@ def listar_elegibles(
     )
     filas = db.execute(consulta.offset((pagina - 1) * tamanio).limit(tamanio)).all()
     items = [FacturaElegibleRead(**_fila(fila).__dict__) for fila in filas]
-    ocultas = (
-        _contar_ocultas(db, filtros)
-        if (filtros.estado or "pendientes_sin_lote") == "pendientes_sin_lote"
-        else 0
-    )
     return FacturasElegiblesRead(
         items=items,
         total=total,
         pagina=pagina,
         tamanio=tamanio,
         total_pagina=len(items),
-        ocultas_en_lote=ocultas,
+        ocultas_en_lote=_contar_ocultas(db, filtros),
     )
 
 
@@ -314,12 +309,6 @@ def _resolver(db: Session, seleccion: Seleccion, *, bloquear: bool = False) -> l
     return filas
 
 
-def _ocultas_en_lote(db: Session, filtros: FiltrosSeleccion) -> int:
-    if (filtros.estado or "pendientes_sin_lote") != "pendientes_sin_lote":
-        return 0
-    return _contar_ocultas(db, filtros)
-
-
 def resumen_seleccion(db: Session, seleccion: Seleccion) -> ResumenSeleccionRead:
     if seleccion.modo == "pagina" and not seleccion.factura_ids:
         return ResumenSeleccionRead(
@@ -330,7 +319,7 @@ def resumen_seleccion(db: Session, seleccion: Seleccion) -> ResumenSeleccionRead
                 "tarjeta": ResumenMedioRead(cantidad=0, importe=Decimal("0.00")),
             },
             alcance="pagina",
-            ocultas_en_lote=_ocultas_en_lote(db, seleccion.filtros),
+            ocultas_en_lote=_contar_ocultas(db, seleccion.filtros),
         )
     filas = _resolver(db, seleccion)
     por_medio = {
@@ -347,7 +336,7 @@ def resumen_seleccion(db: Session, seleccion: Seleccion) -> ResumenSeleccionRead
         importe_total=sum((fila.importe for fila in filas), Decimal("0.00")),
         por_medio=por_medio,
         alcance=seleccion.modo,
-        ocultas_en_lote=_ocultas_en_lote(db, seleccion.filtros),
+        ocultas_en_lote=_contar_ocultas(db, seleccion.filtros),
     )
 
 

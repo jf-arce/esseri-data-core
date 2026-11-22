@@ -217,13 +217,13 @@ export function AppLayout() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="shrink-0 text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
+                className="shrink-0 rounded-lg text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
                 aria-label="Asistente"
                 aria-pressed={asistenteAbierto}
                 title="Asistente (Ctrl+I)"
                 onClick={alternarAsistente}
               >
-                <SparklesIcon className="size-5" />
+                <SparklesIcon className="size-4.5" />
               </Button>
             )}
 

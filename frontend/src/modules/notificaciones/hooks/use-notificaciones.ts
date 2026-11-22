@@ -92,7 +92,8 @@ export function useNotificaciones({ habilitado, usuarioId, rolActivo }: Opciones
     setCargandoMas(false)
     const controller = new AbortController()
     listaController.current = controller
-    setEstado('cargando')
+    // Al reabrir con datos ya cargados se refresca en segundo plano, sin volver al esqueleto.
+    setEstado((previo) => (previo === 'listo' ? previo : 'cargando'))
     setErrorAccion(null)
 
     const generacionAlPedir = generacion.current

@@ -48,7 +48,7 @@ function FilaNotificacion({
       <span
         aria-hidden="true"
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-pf-input',
+          'flex size-10 shrink-0 items-center justify-center rounded-lg',
           estilo.tileClassName,
         )}
       >
@@ -78,7 +78,7 @@ function FilaNotificacion({
               onNavegar()
               void onLeer(notificacion.id)
             }}
-            className="flex min-w-0 flex-1 items-start gap-3 rounded-pf-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+            className="flex min-w-0 flex-1 items-start gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
           >
             {contenido}
           </Link>
@@ -94,7 +94,7 @@ function FilaNotificacion({
               onClick={() => {
                 void onLeer(notificacion.id)
               }}
-              className="flex size-8 items-center justify-center rounded-full text-texto-2 transition-colors hover:bg-violeta/10 hover:text-[var(--pf-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pf-accent"
+              className="flex size-8 items-center justify-center rounded-lg text-texto-2 transition-colors hover:bg-violeta/10 hover:text-violeta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
             >
               <CheckIcon aria-hidden="true" className="size-4" />
             </button>
@@ -116,7 +116,7 @@ function EsqueletoLista() {
     >
       {[0, 1, 2].map((indice) => (
         <div key={indice} className="flex items-start gap-3">
-          <Skeleton className="size-10 shrink-0 rounded-pf-input" />
+          <Skeleton className="size-10 shrink-0 rounded-lg" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-full" />
@@ -185,13 +185,13 @@ export function CampanitaNotificaciones({
           type="button"
           aria-label={etiqueta}
           className={cn(
-            'relative flex size-9 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
+            'relative flex size-9 items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
             tono === 'oscuro'
               ? 'text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white'
               : 'text-texto-2 hover:bg-fila-hover hover:text-texto focus-visible:outline-violeta',
           )}
         >
-          <BellIcon aria-hidden="true" className="size-4" />
+          <BellIcon aria-hidden="true" className="size-4.5" />
           {sinLeer && (
             <span
               aria-hidden="true"
@@ -209,7 +209,10 @@ export function CampanitaNotificaciones({
           evento.preventDefault()
           botonRef.current?.focus()
         }}
-        className="portal-familia w-[min(92vw,26rem)] gap-0 overflow-hidden p-0"
+        className={cn(
+          tono === 'oscuro' && 'portal-familia',
+          'w-[min(92vw,26rem)] gap-0 overflow-hidden p-0',
+        )}
         aria-labelledby="notificaciones-panel-titulo"
       >
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde px-4 pt-4 pb-3">
@@ -231,7 +234,7 @@ export function CampanitaNotificaciones({
               type="button"
               variant="link"
               size="sm"
-              className="h-auto shrink-0 p-0 text-xs text-[var(--pf-accent)] hover:text-[var(--pf-accent)]"
+              className="h-auto shrink-0 p-0 text-xs text-violeta hover:text-violeta"
               disabled={marcandoTodas}
               onClick={() => {
                 void marcarTodas()
@@ -257,10 +260,7 @@ export function CampanitaNotificaciones({
                 size="sm"
                 aria-pressed={activo}
                 onClick={() => setFiltro(valor)}
-                className={cn(
-                  'rounded-full',
-                  activo && 'bg-violeta/15 text-[var(--pf-accent)] hover:bg-violeta/20',
-                )}
+                className={cn(activo && 'bg-violeta/15 text-violeta hover:bg-violeta/20')}
               >
                 {valor === 'todas' ? 'Todas' : 'No leídas'}
               </Button>
@@ -316,7 +316,7 @@ export function CampanitaNotificaciones({
               type="button"
               variant="secondary"
               size="sm"
-              className="w-full rounded-full"
+              className="w-full"
               disabled={cargandoMas}
               onClick={() => {
                 void cargarMas()

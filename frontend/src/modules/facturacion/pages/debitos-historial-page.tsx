@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { HistoryIcon, RotateCcwIcon } from 'lucide-react'
+import { ChevronDownIcon, HistoryIcon, RotateCcwIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { FilterBar, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
@@ -112,6 +113,7 @@ export function DebitosHistorialPage({
 
   const filtros = (
     <FilterBar>
+      <FilterSearch value={buscar} onChange={actualizarBusqueda} placeholder="Buscar lote" />
       <FilterDropdown
         label={periodo !== 'todos' ? `Período: ${etiquetaPeriodo(periodo)}` : 'Período'}
         value={periodo}
@@ -134,7 +136,6 @@ export function DebitosHistorialPage({
         onChange={actualizarEstado}
         options={ESTADOS}
       />
-      <FilterSearch value={buscar} onChange={actualizarBusqueda} placeholder="Buscar lote" />
     </FilterBar>
   )
 
@@ -158,43 +159,51 @@ export function DebitosHistorialPage({
         </p>
       )}
 
-      <div className="grid min-w-0 items-start gap-4 @6xl/main:grid-cols-[minmax(0,1fr)_304px]">
-        <div className="min-w-0 rounded-panel bg-superficie shadow-card">
-          <div className="border-b border-borde p-3">{filtros}</div>
-          {!cargando && !error && datos.items.length === 0 ? (
-            <Empty className="py-12">
-              <EmptyMedia variant="icon" className="bg-sup-facturacion text-mod-facturacion">
-                <HistoryIcon />
-              </EmptyMedia>
-              <EmptyTitle>Todavía no hay lotes exportados.</EmptyTitle>
-              <EmptyDescription>
-                Generá un lote desde la pestaña Generar lote para verlo en el historial.
-              </EmptyDescription>
-            </Empty>
-          ) : (
-            <DebitosHistorialTabla
-              lotes={datos.items}
-              cargando={cargando}
-              pagina={pagina}
-              tamanio={25}
-              total={datos.total}
-              onCambiarPagina={setPagina}
-              onImportar={onImportar}
-              onContinuarRevision={onContinuarRevision}
-              onVerDetalle={verDetalle}
-              onLiberar={setLoteALiberar}
-            />
-          )}
-        </div>
-
-        <DebitosLiberaciones
-          datos={liberaciones.datos}
-          cargando={liberaciones.cargando}
-          error={liberaciones.error}
-          onReintentar={liberaciones.recargar}
-          onCambiarPagina={setPaginaLiberaciones}
-        />
+      <div className="min-w-0 rounded-panel bg-superficie shadow-card">
+        <div className="border-b border-borde p-3">{filtros}</div>
+        {!cargando && !error && datos.items.length === 0 ? (
+          <Empty className="py-12">
+            <EmptyMedia variant="icon" className="bg-sup-facturacion text-mod-facturacion">
+              <HistoryIcon />
+            </EmptyMedia>
+            <EmptyTitle>Todavía no hay lotes exportados.</EmptyTitle>
+            <EmptyDescription>
+              Generá un lote desde la pestaña Generar lote para verlo en el historial.
+            </EmptyDescription>
+          </Empty>
+        ) : (
+          <DebitosHistorialTabla
+            lotes={datos.items}
+            cargando={cargando}
+            pagina={pagina}
+            tamanio={25}
+            total={datos.total}
+            onCambiarPagina={setPagina}
+            onImportar={onImportar}
+            onContinuarRevision={onContinuarRevision}
+            onVerDetalle={verDetalle}
+            onLiberar={setLoteALiberar}
+          />
+        )}
       </div>
+
+      <Collapsible className="min-w-0 rounded-panel bg-superficie shadow-card">
+        <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between gap-2 px-5 py-4 text-left text-base font-semibold text-texto">
+          {liberaciones.cargando && liberaciones.datos.total === 0
+            ? 'Liberaciones'
+            : `Liberaciones (${liberaciones.datos.total})`}
+          <ChevronDownIcon className="size-4 text-texto-3 transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <DebitosLiberaciones
+            datos={liberaciones.datos}
+            cargando={liberaciones.cargando}
+            error={liberaciones.error}
+            onReintentar={liberaciones.recargar}
+            onCambiarPagina={setPaginaLiberaciones}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       <LiberarLoteDialog
         open={loteALiberar !== null}

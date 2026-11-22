@@ -13,10 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import {
-  BadgeEstadoDetalle,
-  etiquetaResultado,
-} from '@/modules/facturacion/components/debitos-etiquetas'
+import { BadgeEstadoDetalle } from '@/modules/facturacion/components/debitos-etiquetas'
 import type {
   ImportacionDetalleDebito,
   ImportacionResumenDebitos,
@@ -24,10 +21,11 @@ import type {
 } from '@/modules/facturacion/types'
 import { formatearMoneda } from '@/modules/facturacion/utils'
 
+const FILAS_ESQUELETO = 8
+
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-24' },
   { tipo: 'texto', ancho: 'h-4 w-32', anchoAlt: 'h-4 w-24' },
-  { tipo: 'chip', ancho: 'w-20' },
   { tipo: 'texto', ancho: 'h-4 w-48', anchoAlt: 'h-4 w-36' },
   { tipo: 'chip', ancho: 'w-20' },
   { tipo: 'texto', ancho: 'h-4 w-24' },
@@ -69,33 +67,32 @@ export function DebitosImportacionTabla({
 
   return (
     <div className="min-w-0 w-full rounded-panel bg-superficie shadow-card">
-      <div className="flex flex-wrap items-end gap-3 border-b border-borde p-3">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <h2 className="text-sm font-semibold text-texto">Detalle a revisar</h2>
-          <ToggleGroup
-            type="single"
-            className="max-w-full flex-wrap"
-            value={resultado}
-            onValueChange={(valor) => {
-              if (valor) onResultadoChange(valor as ResultadoImportacionFiltro)
-            }}
-          >
-            <ToggleGroupItem value="revision">Requieren revisión · {revision}</ToggleGroupItem>
-            <ToggleGroupItem value="rechazados">
-              Rechazados · {resumen.rechazados.cantidad}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="errores">Errores · {resumen.errores.cantidad}</ToggleGroupItem>
-            <ToggleGroupItem value="cobrados">
-              Cobrados · {resumen.cobrados.cantidad}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+      <div className="flex flex-wrap items-center gap-3 border-b border-borde p-3">
+        <ToggleGroup
+          type="single"
+          className="max-w-full flex-wrap"
+          value={resultado}
+          onValueChange={(valor) => {
+            if (valor) onResultadoChange(valor as ResultadoImportacionFiltro)
+          }}
+        >
+          <ToggleGroupItem value="revision">Requieren revisión · {revision}</ToggleGroupItem>
+          <ToggleGroupItem value="rechazados">
+            Rechazados · {resumen.rechazados.cantidad}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="errores">Errores · {resumen.errores.cantidad}</ToggleGroupItem>
+          <ToggleGroupItem value="cobrados">Cobrados · {resumen.cobrados.cantidad}</ToggleGroupItem>
+        </ToggleGroup>
         <FilterBar className="flex-1 justify-end">
           <FilterSearch
             value={buscar}
             onChange={onBuscarChange}
             placeholder="Buscar factura o alumno"
           />
+          <Button variant="secondary" disabled={descargando} onClick={onDescargarIncidencias}>
+            <DownloadIcon data-icon="inline-start" />
+            Descargar rechazados y errores (CSV)
+          </Button>
         </FilterBar>
       </div>
 
@@ -107,12 +104,11 @@ export function DebitosImportacionTabla({
           </EmptyDescription>
         </Empty>
       ) : (
-        <Table bare minWidth="min-w-[880px]" className="text-[13px]">
+        <Table bare minWidth="min-w-[760px]">
           <TableHeader>
             <TableRow>
               <TableHead>Factura</TableHead>
               <TableHead>Alumno</TableHead>
-              <TableHead>Resultado</TableHead>
               <TableHead>Motivo informado</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead data-align="end" className="w-32">
@@ -122,7 +118,10 @@ export function DebitosImportacionTabla({
           </TableHeader>
           <TableBody>
             {cargando ? (
-              <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={tamanio} />
+              <TableSkeleton
+                columnas={COLUMNAS_ESQUELETO}
+                filas={Math.min(tamanio, FILAS_ESQUELETO)}
+              />
             ) : (
               items.map((item) => (
                 <TableRow key={`${item.linea}-${item.referencia ?? ''}`}>
@@ -142,13 +141,6 @@ export function DebitosImportacionTabla({
                       {item.alumno_nombre ?? '—'}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    {item.estado === 'error'
-                      ? 'Error'
-                      : item.estado === 'duplicado'
-                        ? 'Duplicado'
-                        : etiquetaResultado(item.resultado)}
-                  </TableCell>
                   <TableCell className="max-w-80 whitespace-normal break-words">
                     {item.mensaje}
                   </TableCell>
@@ -165,27 +157,16 @@ export function DebitosImportacionTabla({
         </Table>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={descargando}
-          onClick={onDescargarIncidencias}
-        >
-          <DownloadIcon data-icon="inline-start" />
-          Descargar rechazados y errores (CSV)
-        </Button>
-        {!cargando && (
-          <PaginadorServidor
-            pagina={pagina}
-            tamanioPagina={tamanio}
-            total={total}
-            totalPaginas={totalPaginas}
-            onCambiarPagina={onCambiarPagina}
-            etiqueta="registros"
-          />
-        )}
-      </div>
+      {!cargando && (
+        <PaginadorServidor
+          pagina={pagina}
+          tamanioPagina={tamanio}
+          total={total}
+          totalPaginas={totalPaginas}
+          onCambiarPagina={onCambiarPagina}
+          etiqueta="registros"
+        />
+      )}
     </div>
   )
 }

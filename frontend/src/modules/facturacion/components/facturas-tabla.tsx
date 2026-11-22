@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -71,7 +71,7 @@ function EncabezadoOrdenable({
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 rounded-sm text-inherit hover:text-texto"
+      className="inline-flex items-center gap-1 rounded-sm text-inherit uppercase hover:text-texto"
       aria-label={`Ordenar por ${etiqueta.toLowerCase()}: ${activo && direccion === 'asc' ? 'ascendente' : 'descendente'}`}
       onClick={() => onOrdenar(campo)}
     >
@@ -92,6 +92,7 @@ export function FacturasTabla({
   direccion,
   onOrdenar,
 }: FacturasTablaProps) {
+  const navigate = useNavigate()
   const totalPaginas = Math.max(1, Math.ceil(total / tamanioPagina))
 
   return (
@@ -120,9 +121,9 @@ export function FacturasTabla({
                 onOrdenar={onOrdenar}
               />
             </TableHead>
-            <TableHead className="w-56">Conceptos</TableHead>
+            <TableHead>Conceptos</TableHead>
             <TableHead
-              className="w-32"
+              className="w-28"
               data-align="end"
               aria-sort={
                 ordenarPor === 'monto_total'
@@ -148,10 +149,15 @@ export function FacturasTabla({
             <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={tamanioPagina} />
           ) : (
             items.map((factura) => (
-              <TableRow key={factura.id}>
+              <TableRow
+                key={factura.id}
+                className="cursor-pointer"
+                onClick={() => navigate(`/facturacion/${factura.id}`)}
+              >
                 <TableCell>
                   <Link
                     to={`/facturacion/${factura.id}`}
+                    onClick={(evento) => evento.stopPropagation()}
                     className="font-medium tabular-nums hover:text-violeta hover:underline"
                   >
                     #{factura.id.slice(0, 8)}
@@ -166,7 +172,7 @@ export function FacturasTabla({
                 <TableCell className="tabular-nums">
                   {formatearFechaFactura(factura.fecha_vencimiento)}
                 </TableCell>
-                <TableCell className="w-56">
+                <TableCell>
                   {factura.detalles.length > 1 ? (
                     <Tooltip>
                       <TooltipTrigger asChild>

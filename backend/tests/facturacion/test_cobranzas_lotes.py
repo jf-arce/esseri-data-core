@@ -246,7 +246,7 @@ def test_facturas_elegibles_pagina_y_marca_ocultas_en_otro_lote(client_autentica
     assert en_lote.status_code == 200
     assert [item["numero"] for item in en_lote.json()["items"]] == ["F-0009"]
     assert en_lote.json()["items"][0]["en_lote"] is True
-    assert en_lote.json()["ocultas_en_lote"] == 0
+    assert en_lote.json()["ocultas_en_lote"] == 1
 
     buscada = client_autenticado.get(BASE + "/facturas-elegibles", params={"buscar": "F-0003"})
     assert [item["numero"] for item in buscada.json()["items"]] == ["F-0003"]

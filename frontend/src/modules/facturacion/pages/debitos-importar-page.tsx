@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import { FileUpIcon, RotateCcwIcon, ShieldAlertIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { FileTextIcon, FileUpIcon, RotateCcwIcon, ShieldAlertIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Field, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Dropzone } from '@/components/dropzone'
+import { DebitosImportacionEsqueleto } from '@/modules/facturacion/components/debitos-importacion-esqueleto'
 import { DebitosImportacionResumen } from '@/modules/facturacion/components/debitos-importacion-resumen'
 import { DebitosImportacionTabla } from '@/modules/facturacion/components/debitos-importacion-tabla'
 import { DebitosPanelConfirmacion } from '@/modules/facturacion/components/debitos-panel-confirmacion'
@@ -44,7 +44,7 @@ export function DebitosImportarPage({
   const [confirmadaExistente, setConfirmadaExistente] = useState<ImportacionDebitosRead | null>(
     null,
   )
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [reemplazando, setReemplazando] = useState(false)
 
   const {
     importacion,
@@ -81,6 +81,7 @@ export function DebitosImportarPage({
   const nombreVisible = importacionId && archivoId !== importacionId ? null : archivoNombre
 
   async function procesarArchivo(file: File) {
+    setReemplazando(false)
     setArchivoNombre(file.name)
     setArchivoId(null)
     setErroresArchivo([])
@@ -117,8 +118,6 @@ export function DebitosImportarPage({
       onImportacionChange(lectura.id)
     } catch (reason) {
       setErrorAccion(mensajeDeError(reason, 'No se pudo procesar el archivo.'))
-    } finally {
-      if (inputRef.current) inputRef.current.value = ''
     }
   }
 
@@ -169,53 +168,51 @@ export function DebitosImportarPage({
   }
 
   const mostrarCarga = cargando || procesando
-  const sinArchivo = !importacionId && erroresArchivo.length === 0 && !procesando
+  // Sin datos (o con los de otra importación) se dibuja el esqueleto completo. Con datos
+  // vigentes, cambiar filtro o página solo refresca la tabla: el resumen no cambia.
+  const mostrarEsqueleto =
+    mostrarCarga && (!actual || (importacionId !== null && actual.id !== importacionId))
+  const mostrarDropzone = !hayArchivo || reemplazando || (erroresArchivo.length > 0 && !procesando)
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="min-w-0 rounded-panel border border-borde bg-superficie p-4 shadow-card">
-        <Field>
-          <FieldLabel htmlFor="archivo-resultados">Archivo de resultados</FieldLabel>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              ref={inputRef}
-              id="archivo-resultados"
-              type="file"
-              accept=".csv,.txt,text/csv,text/plain"
-              className={hayArchivo ? 'hidden' : 'max-w-xl'}
-              disabled={procesando}
-              onChange={(evento) => {
-                const archivo = evento.currentTarget.files?.[0]
-                if (archivo) void procesarArchivo(archivo)
-              }}
-            />
-            {hayArchivo && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={procesando}
-                onClick={() => inputRef.current?.click()}
-              >
-                <FileUpIcon data-icon="inline-start" />
-                Reemplazar archivo
-              </Button>
-            )}
+      <div className="min-w-0 rounded-panel bg-superficie p-4 shadow-card">
+        {mostrarDropzone ? (
+          <Dropzone
+            onDrop={(archivos) => {
+              if (archivos[0]) void procesarArchivo(archivos[0])
+            }}
+            accept={{ 'text/csv': ['.csv'], 'text/plain': ['.txt'] }}
+            disabled={procesando}
+            inputLabel="Archivo de resultados"
+            label="Arrastrá el archivo de respuesta del banco o hacé clic para elegirlo"
+            hint="CSV o TXT, hasta 1 MiB. Revisás todo antes de registrar pagos."
+            className="min-h-48 justify-center"
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <FileTextIcon className="size-5 shrink-0 text-texto-3" />
             {nombreVisible && (
-              <span className="max-w-full truncate text-sm text-texto-2">{nombreVisible}</span>
+              <span className="min-w-0 max-w-full truncate text-sm font-medium text-texto">
+                {nombreVisible}
+              </span>
             )}
-            {actual?.lote_codigo && (
-              <span className="text-sm text-texto-2">Lote {actual.lote_codigo}</span>
-            )}
+            {actual?.lote_codigo && <Badge variant="info">Lote {actual.lote_codigo}</Badge>}
+            <Button
+              variant="secondary"
+              className="ml-auto"
+              disabled={procesando}
+              onClick={() => setReemplazando(true)}
+            >
+              <FileUpIcon data-icon="inline-start" />
+              Reemplazar archivo
+            </Button>
           </div>
-        </Field>
-        <p className="mt-2 text-xs text-texto-2">
-          La vista previa no registra pagos. La confirmación revalida cada factura antes de aplicar
-          cambios.
-        </p>
+        )}
       </div>
 
       {mostrarCarga && (
-        <p role="status" className="text-sm text-texto-2">
+        <p role="status" className={procesando ? 'text-sm text-texto-2' : 'sr-only'}>
           {procesando ? 'Procesando archivo…' : 'Cargando importación…'}
         </p>
       )}
@@ -260,21 +257,10 @@ export function DebitosImportarPage({
         </Alert>
       )}
 
-      {sinArchivo && (
-        <Empty className="min-h-[260px] rounded-panel bg-superficie shadow-card">
-          <EmptyMedia variant="icon" className="bg-sup-facturacion text-mod-facturacion">
-            <FileUpIcon />
-          </EmptyMedia>
-          <EmptyTitle>Todavía no cargaste un archivo de resultados.</EmptyTitle>
-          <EmptyDescription>
-            Subí el archivo de resultados para revisar la vista previa antes de confirmar.
-          </EmptyDescription>
-        </Empty>
-      )}
-
-      {actual && (
+      {mostrarEsqueleto && <DebitosImportacionEsqueleto />}
+      {actual && !mostrarEsqueleto && (
         <>
-          <DebitosImportacionResumen resumen={actual.resumen} cargando={mostrarCarga} />
+          <DebitosImportacionResumen resumen={actual.resumen} cargando={false} />
           <div className="grid min-w-0 items-start gap-4 @7xl/main:grid-cols-[minmax(0,1fr)_320px]">
             <DebitosImportacionTabla
               items={actual.items}

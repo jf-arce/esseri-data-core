@@ -1,19 +1,20 @@
 import type { ReactNode } from 'react'
+import { DownloadIcon, EraserIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { PaginadorServidor } from '@/components/paginador-servidor'
 import { TableSkeleton, type ColumnaEsqueleto } from '@/components/table-skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import type { FacturaElegibleDebito, ResumenSeleccionDebitos } from '@/modules/facturacion/types'
-import { etiquetaMedio, etiquetaPeriodo } from '@/modules/facturacion/components/debitos-etiquetas'
 import { formatearFechaFactura, formatearMoneda } from '@/modules/facturacion/utils'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
@@ -21,8 +22,7 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-24' },
   { tipo: 'texto', ancho: 'h-4 w-40', anchoAlt: 'h-4 w-32' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
-  { tipo: 'chip', ancho: 'w-16' },
-  { tipo: 'texto', ancho: 'h-4 w-20' },
+  { tipo: 'chip', ancho: 'w-20' },
   { tipo: 'texto', ancho: 'h-4 w-24' },
 ]
 
@@ -39,10 +39,13 @@ interface DebitosGenerarTablaProps {
   seleccionadas: string[]
   excluidos: string[]
   estadoTodas: boolean | 'indeterminate'
+  exportando: boolean
   onCambiarPagina: (pagina: number) => void
   onAlternarFila: (id: string, seleccionada: boolean) => void
   onAlternarTodasFiltradas: (seleccionada: boolean) => void
   onVerFactura: (factura: FacturaElegibleDebito) => void
+  onExportar: () => void
+  onLimpiar: () => void
 }
 
 export function DebitosGenerarTabla({
@@ -58,10 +61,13 @@ export function DebitosGenerarTabla({
   seleccionadas,
   excluidos,
   estadoTodas,
+  exportando,
   onCambiarPagina,
   onAlternarFila,
   onAlternarTodasFiltradas,
   onVerFactura,
+  onExportar,
+  onLimpiar,
 }: DebitosGenerarTablaProps) {
   const totalPaginas = Math.max(1, Math.ceil(total / tamanio))
   const cantidadVisible = resumen.cantidad
@@ -71,18 +77,34 @@ export function DebitosGenerarTabla({
       <div className="border-b border-borde p-3">{filtros}</div>
 
       {resumen.cantidad > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-violeta-borde bg-violeta-suave px-4 py-2 text-sm text-texto">
-          <p>
-            Seleccionaste {cantidadVisible} {cantidadVisible === 1 ? 'factura' : 'facturas'}{' '}
-            {modo === 'filtrados' ? 'que coinciden con los filtros.' : 'de esta página.'}
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-violeta-borde bg-violeta-suave px-4 py-2 text-sm text-texto">
+          <div>
+            <p className="font-medium tabular-nums">
+              {cantidadVisible}{' '}
+              {cantidadVisible === 1 ? 'factura seleccionada' : 'facturas seleccionadas'}
+            </p>
+            <p className="text-xs text-texto-2">
+              Seleccionaste {cantidadVisible} {cantidadVisible === 1 ? 'factura' : 'facturas'}{' '}
+              {modo === 'filtrados' ? 'que coinciden con los filtros.' : 'de esta página.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" disabled={exportando} onClick={onLimpiar}>
+              <EraserIcon data-icon="inline-start" />
+              Limpiar
+            </Button>
+            <Button disabled={exportando} onClick={onExportar}>
+              <DownloadIcon data-icon="inline-start" />
+              Exportar {cantidadVisible} solicitudes
+            </Button>
+          </div>
         </div>
       )}
 
       {!cargando && facturas.length === 0 ? (
         <div className="p-6">{vacio}</div>
       ) : (
-        <Table bare minWidth="min-w-[600px]" className="text-[13px] [&_td]:px-2 [&_th]:px-2">
+        <Table bare minWidth="min-w-[600px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
@@ -95,9 +117,8 @@ export function DebitosGenerarTabla({
               </TableHead>
               <TableHead>Factura</TableHead>
               <TableHead>Alumno</TableHead>
-              <TableHead>Período</TableHead>
-              <TableHead>Medio</TableHead>
               <TableHead>Vence</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead data-align="end" className="w-32">
                 Importe
               </TableHead>
@@ -140,13 +161,19 @@ export function DebitosGenerarTabla({
                       >
                         {factura.alumno_nombre}
                       </Link>
+                      <span className="block max-w-48 truncate text-xs text-texto-3">
+                        {factura.curso}
+                      </span>
                     </TableCell>
-                    <TableCell>{etiquetaPeriodo(factura.periodo)}</TableCell>
-                    <TableCell>{etiquetaMedio(factura.medio)}</TableCell>
                     <TableCell className="tabular-nums">
                       {formatearFechaFactura(factura.fecha_vencimiento)}
                     </TableCell>
-                    <TableCell data-align="end" className="font-medium">
+                    <TableCell>
+                      <Badge variant={factura.en_lote ? 'info' : 'neutro'}>
+                        {factura.en_lote ? 'En lote' : 'Pendiente'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell data-align="end" className="font-medium tabular-nums">
                       {formatearMoneda(factura.importe)}
                     </TableCell>
                   </TableRow>
@@ -154,16 +181,6 @@ export function DebitosGenerarTabla({
               })
             )}
           </TableBody>
-          {!cargando && facturas.length > 0 && resumen.cantidad > 0 && (
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={6}>Total de la selección</TableCell>
-                <TableCell data-align="end" className="font-semibold">
-                  {formatearMoneda(resumen.importe_total)}
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          )}
         </Table>
       )}
 

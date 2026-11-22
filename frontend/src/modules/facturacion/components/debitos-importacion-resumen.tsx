@@ -16,19 +16,19 @@ export function DebitosImportacionResumen({ resumen, cargando }: DebitosImportac
     >
       <StatTile
         compact
-        label="Procesados"
-        value={resumen.procesados.cantidad}
-        note={formatearMoneda(resumen.procesados.importe)}
-        icon={FilesIcon}
-        cargando={cargando}
-      />
-      <StatTile
-        compact
         label="Cobrados"
         value={resumen.cobrados.cantidad}
         note={formatearMoneda(resumen.cobrados.importe)}
         icon={CircleCheckIcon}
         iconClassName="bg-exito-suave text-exito"
+        cargando={cargando}
+      />
+      <StatTile
+        compact
+        label="Procesados"
+        value={resumen.procesados.cantidad}
+        note={formatearMoneda(resumen.procesados.importe)}
+        icon={FilesIcon}
         cargando={cargando}
       />
       <StatTile

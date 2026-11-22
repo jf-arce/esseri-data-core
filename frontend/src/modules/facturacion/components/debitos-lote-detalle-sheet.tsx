@@ -108,7 +108,7 @@ export function DebitosLoteDetalleSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full bg-superficie text-[13px] [&_.text-sm]:text-[13px] [&_.text-sm]:leading-[18px] data-[side=right]:sm:w-1/2 data-[side=right]:sm:max-w-none"
+        className="w-full bg-superficie data-[side=right]:sm:w-1/2 data-[side=right]:sm:max-w-none"
       >
         <SheetHeader className="border-b border-borde pr-12">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -123,10 +123,33 @@ export function DebitosLoteDetalleSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3">
           {cargando && (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-4 w-52" />
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-24 w-full" />
+            <div aria-hidden="true" className="flex flex-col gap-3">
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-col gap-2">
+                  <p className="text-texto-2">Total del lote</p>
+                  <Skeleton className="h-8 w-40" />
+                </div>
+                <Skeleton className="h-9 w-32" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['Exportado', 'Período', 'Facturas'].map((etiqueta) => (
+                  <div key={etiqueta} className="rounded-card-sm bg-lienzo px-3 py-2">
+                    <p className="text-xs text-texto-2">{etiqueta}</p>
+                    <Skeleton className="mt-1 h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className="h-9 w-full" />
+              <div className="flex flex-col gap-3 rounded-panel border border-borde p-3">
+                {[0, 1, 2, 3, 4].map((fila) => (
+                  <div key={fila} className="flex items-center gap-4">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className={fila % 2 === 0 ? 'h-4 w-32' : 'h-4 w-24'} />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="ml-auto h-4 w-16" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {error && <p className="text-sm text-error">{error}</p>}
@@ -202,7 +225,7 @@ export function DebitosLoteDetalleSheet({
                 ref={setLista}
                 className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-panel border border-borde"
               >
-                <table className="w-full min-w-0 border-separate border-spacing-0 caption-bottom text-[13px] text-texto [&_tbody_td]:border-b [&_tbody_td]:border-borde [&_thead_th]:border-b [&_thead_th]:border-borde [&_td]:px-2 [&_th]:px-2">
+                <table className="w-full min-w-0 border-separate border-spacing-0 caption-bottom text-sm text-texto [&_tbody_td]:border-b [&_tbody_td]:border-borde [&_thead_th]:border-b [&_thead_th]:border-borde [&_td]:px-2 [&_th]:px-2">
                   <TableHeader>
                     <TableRow>
                       <TableHead className={CELDA_FIJA}>Factura</TableHead>

@@ -23,6 +23,8 @@ import {
 import type { LoteDebitoResumen } from '@/modules/facturacion/types'
 import { formatearFechaFactura, formatearMoneda } from '@/modules/facturacion/utils'
 
+const FILAS_ESQUELETO = 8
+
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-32' },
   { tipo: 'texto', ancho: 'h-4 w-20' },
@@ -30,7 +32,7 @@ const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-10' },
   { tipo: 'texto', ancho: 'h-4 w-24' },
   { tipo: 'chip', ancho: 'w-36' },
-  { tipo: 'accion' },
+  { tipo: 'chip', ancho: 'w-36' },
 ]
 
 interface DebitosHistorialTablaProps {
@@ -62,7 +64,7 @@ export function DebitosHistorialTabla({
 
   return (
     <div className="min-w-0 w-full">
-      <Table bare className="text-[13px]">
+      <Table bare>
         <TableHeader>
           <TableRow>
             <TableHead>Lote</TableHead>
@@ -71,14 +73,17 @@ export function DebitosHistorialTabla({
             <TableHead data-align="end">Facturas</TableHead>
             <TableHead data-align="end">Importe</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead data-align="end" className="w-10">
+            <TableHead data-align="end">
               <span className="sr-only">Acciones</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {cargando ? (
-            <TableSkeleton columnas={COLUMNAS_ESQUELETO} filas={tamanio} />
+            <TableSkeleton
+              columnas={COLUMNAS_ESQUELETO}
+              filas={Math.min(tamanio, FILAS_ESQUELETO)}
+            />
           ) : (
             lotes.map((lote) => (
               <TableRow key={lote.id}>
@@ -98,40 +103,43 @@ export function DebitosHistorialTabla({
                 <TableCell>
                   <BadgeEstadoLote estado={lote.estado} compacto />
                 </TableCell>
-                <TableCell data-align="end" className="w-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Acciones del lote ${lote.codigo}`}
-                      >
-                        <MoreHorizontalIcon />
+                <TableCell data-align="end">
+                  <div className="flex items-center justify-end gap-1">
+                    {lote.estado === 'exportado' && (
+                      <Button variant="secondary" onClick={onImportar}>
+                        Importar resultados
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {lote.estado === 'exportado' && (
-                        <DropdownMenuItem onClick={onImportar}>
-                          Importar resultados
-                        </DropdownMenuItem>
-                      )}
-                      {lote.estado === 'exportado' && !lote.resultados_importados && (
-                        <DropdownMenuItem onClick={() => onLiberar(lote)}>
-                          Liberar lote
-                        </DropdownMenuItem>
-                      )}
-                      {lote.estado === 'en_revision' && lote.importacion_id && (
-                        <DropdownMenuItem
-                          onClick={() => onContinuarRevision(lote.importacion_id as string)}
+                    )}
+                    {lote.estado === 'en_revision' && lote.importacion_id && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => onContinuarRevision(lote.importacion_id as string)}
+                      >
+                        Continuar revisión
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Acciones del lote ${lote.codigo}`}
                         >
-                          Continuar revisión
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {lote.estado === 'exportado' && !lote.resultados_importados && (
+                          <DropdownMenuItem onClick={() => onLiberar(lote)}>
+                            Liberar lote
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => onVerDetalle(lote.id)}>
+                          Ver detalle
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => onVerDetalle(lote.id)}>
-                        Ver detalle
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))

@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  FileTextIcon,
-  PlusIcon,
-  Settings2Icon,
-  ShieldAlertIcon,
-  WalletCardsIcon,
-} from 'lucide-react'
+import { FileTextIcon, PlusIcon, ShieldAlertIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -150,39 +144,18 @@ export function FacturasPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-bold tracking-[.06em] text-texto-3 uppercase">
-          Facturación y cobranza
-        </p>
-        <PageHeader
-          titulo="Facturas"
-          accion={
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" asChild>
-                <Link to="/facturacion/cobranzas">Débitos automáticos</Link>
-              </Button>
-              <Button variant="secondary" asChild>
-                <Link to="/facturacion/deudas/familias">
-                  <WalletCardsIcon data-icon="inline-start" />
-                  Deudas por familia
-                </Link>
-              </Button>
-              <Button variant="secondary" asChild>
-                <Link to="/facturacion/reglas">
-                  <Settings2Icon data-icon="inline-start" />
-                  Reglas
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link to="/facturacion/nueva">
-                  <PlusIcon data-icon="inline-start" />
-                  Nueva factura
-                </Link>
-              </Button>
-            </div>
-          }
-        />
-      </div>
+      <PageHeader
+        titulo="Facturas"
+        descripcion="Consultá, filtrá y registrá las facturas emitidas."
+        accion={
+          <Button asChild>
+            <Link to="/facturacion/nueva">
+              <PlusIcon data-icon="inline-start" />
+              Nueva factura
+            </Link>
+          </Button>
+        }
+      />
 
       {error && (
         <Alert variant="error">
