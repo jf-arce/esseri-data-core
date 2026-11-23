@@ -209,17 +209,23 @@ function ContextoCard({
             compacto ? 'flex-1' : 'xl:w-[19rem] xl:shrink-0',
           )}
         >
-          <span
-            className={cn(
-              'flex shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta',
-              compacto ? 'size-10' : 'size-12',
-            )}
-          >
-            <FileTextIcon aria-hidden="true" className={compacto ? 'size-5' : 'size-6'} />
-          </span>
+          {!compacto && (
+            <span
+              className={cn(
+                'flex shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta',
+                'size-12',
+              )}
+            >
+              <FileTextIcon aria-hidden="true" className="size-6" />
+            </span>
+          )}
           <div className="min-w-0">
             <p className="text-base font-semibold text-texto">{tituloTramite}</p>
-            <p className="truncate text-xs text-texto-2">{subtitulo}</p>
+            <p className="truncate text-xs text-texto-2">
+              {compacto && motivo
+                ? `${subtitulo} · ${motivo.etiqueta}: ${motivo.valor}`
+                : subtitulo}
+            </p>
           </div>
         </div>
         {datos.map((dato) => {
@@ -229,7 +235,7 @@ function ContextoCard({
               key={dato.etiqueta}
               className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
-              {Icono && (
+              {Icono && !compacto && (
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
                   <Icono aria-hidden="true" className="size-4.5" />
                 </span>
@@ -248,19 +254,10 @@ function ContextoCard({
         )}
         {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
       </div>
-      {motivo && (
+      {motivo && !compacto && (
         <div className={cn('border-t border-borde', compacto ? 'pt-2' : 'pt-3')}>
-          {compacto ? (
-            <p className="truncate text-sm text-texto" title={String(motivo.valor)}>
-              <span className="text-xs font-medium text-texto-2">{motivo.etiqueta}: </span>
-              {motivo.valor}
-            </p>
-          ) : (
-            <>
-              <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
-              <p className="text-sm text-texto">{motivo.valor}</p>
-            </>
-          )}
+          <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
+          <p className="text-sm text-texto">{motivo.valor}</p>
         </div>
       )}
     </section>
