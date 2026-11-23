@@ -107,22 +107,20 @@ The `.test` addresses are for a local mail capture only, not public inboxes.
    branch using the success template if you want both outcomes notified.
 2. As `admin`, open **Facturación → Débitos → Generar lote**. In `2026-11`, CBU,
    search `ID-RENDICION`, select all 28 matching invoices, export and save the
-   CBU CSV. Record the batch UUID from the lot detail (in OpenAPI, `GET
-   /facturacion/cobranzas-simuladas` returns both `codigo` and `id`). Clear the
-   search, search `ID-RESERVA`, and export the two remaining invoices into
+   CBU CSV. Clear the search, search `ID-RESERVA`, and export the two remaining invoices into
    their own batch. Leave that batch unprocessed.
-3. Generate the **actual importable response file** with the UUID of the
-   28-invoice batch and the exact CSV downloaded in step 2:
+3. Generate the **actual importable response file** from the exact CSV
+   downloaded in step 2 (the batch code travels in its header):
 
    ```bash
    # From backend/, with the venv activated. Use a fresh output path per rehearsal.
    python ../database/seeds/08_seed_institutional_demo.py bank-response \
-     /path/to/request.csv BATCH_UUID /path/to/esseri-response.csv
+     /path/to/request.csv /path/to/esseri-response.csv
    ```
 
    The command uses the real codec, recalculates control totals, and does not
    access the database or overwrite an existing output. A static response
-   could not be reused because export assigns fresh batch and detail UUIDs.
+   could not be reused because each export gets a new batch code.
    Use `--processing-date YYYY-MM-DD` if you changed the seed reference month.
    The simulated format accepts only terminal outcomes and requires one
    result per invoice, so the two pending debits **cannot** be in this file.

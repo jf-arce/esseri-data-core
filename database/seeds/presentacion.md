@@ -74,11 +74,11 @@ Las demás cuentas de familia siguen el mismo patrón `nombre.apellido@familias.
 
 1. Como `santiago.acosta`, Workflows → Nueva regla: disparador de resultado de débito, condición `resultado == Acreditado`, acciones **Publicar comunicación** con las plantillas **Acreditación de débito** (rama Sí) y **Rechazo de acreditación de débito** (rama No), canal `ambos`.
 2. Como `paula.luna`, Facturación → Débitos automáticos → Generar lote. Período `2026-11`, CBU. Son 30 facturas elegibles: `F-202611-0001` a `F-202611-0030`. Las **28 primeras** van en el lote; las dos últimas (`0029` y `0030`) quedan fuera, sin resultado.
-3. Generar el archivo de respuesta con el CSV exportado y el UUID del lote (desde `backend/`):
+3. Generar el archivo de respuesta con el CSV exportado (el código de lote viene en su cabecera; desde `backend/`):
 
    ```bash
    python ../database/seeds/09_seed_presentacion.py bank-response \
-     /ruta/solicitud.csv UUID_DEL_LOTE /ruta/respuesta.csv
+     /ruta/solicitud.csv /ruta/respuesta.csv
    ```
 
 4. Importar resultados, revisar y confirmar: 20 acreditados, 5 por saldo insuficiente y 3 con otros rechazos.

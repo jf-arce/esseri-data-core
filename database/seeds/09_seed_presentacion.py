@@ -16,7 +16,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from functools import cache
 from importlib import import_module
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
 from textwrap import fill
 
@@ -1704,34 +1704,13 @@ def validate_target(environment: str, database_url: str, enabled: str) -> None:
         )
 
 
-def bank_response(exported: str, batch: uuid.UUID, processed_on: date) -> str:
-    reader = csv.DictReader(StringIO(exported), delimiter=";", strict=True)
-    if reader.fieldnames != [
-        "referencia",
-        "factura",
-        "alumno",
-        "periodo",
-        "concepto",
-        "importe",
-        "vencimiento",
-        "cbu",
-    ]:
-        raise ValueError("Use the unmodified CBU export from the institutional demo batch.")
-    rows = list(reader)
+def bank_response(exported: str, processed_on: date) -> str:
+    lote, _, rows = bank.leer_solicitud(exported)
     expected = [f"F-{processed_on:%Y%m}-{i:04}" for i in range(1, 29)]
-    if (
-        len(rows) != 28
-        or {row.get("factura") for row in rows} != set(expected)
-        or any(
-            row.get("periodo") != f"{processed_on:%Y-%m}" or None in row or None in row.values()
-            for row in rows
-        )
-    ):
-        raise ValueError(
-            "Expected the first 28 invoices (F-AAAAMM-0001 to 0028) of the processing month."
-        )
+    if len(rows) != 28 or {row.factura for row in rows} != set(expected):
+        raise ValueError("Expected the first 28 invoices (F-AAAAMM-0001 to 0028) of the processing month.")
     results = []
-    for i, row in enumerate(sorted(rows, key=lambda row: row["factura"])):
+    for i, row in enumerate(sorted(rows, key=lambda row: row.factura)):
         if i < APPROVED_OPERATIONS:
             reason = ("", "")
         elif i < APPROVED_OPERATIONS + INSUFFICIENT_FUNDS_OPERATIONS:
@@ -1742,14 +1721,17 @@ def bank_response(exported: str, batch: uuid.UUID, processed_on: date) -> str:
             ]
         results.append(
             bank.RespuestaDetalle(
-                uuid.UUID(row["referencia"]),
+                row.orden,
+                bank.referencia_corta(lote, row.orden),
+                row.factura,
+                row.alumno,
                 bank.RECHAZADO if i >= APPROVED_OPERATIONS else bank.COBRADO,
-                Decimal(row["importe"]),
+                row.importe,
                 processed_on,
                 *reason,
             )
         )
-    content = bank.generar_respuesta(batch, processed_on, results)
+    content = bank.generar_respuesta(lote, processed_on, results)
     bank.leer_respuesta(content)
     return content
 
@@ -1759,13 +1741,12 @@ def response_command(args: list[str]) -> None:
         description="Create a fixture from the exported 28-item CBU batch."
     )
     parser.add_argument("export", type=Path)
-    parser.add_argument("batch", type=uuid.UUID)
     parser.add_argument("output", type=Path)
     parser.add_argument("--processing-date", type=date.fromisoformat, default=REFERENCE)
     options = parser.parse_args(args)
     try:
         content = bank_response(
-            options.export.read_text(encoding="utf-8-sig"), options.batch, options.processing_date
+            options.export.read_text(encoding="utf-8-sig"), options.processing_date
         )
         with options.output.open("x", encoding="utf-8", newline="") as destination:
             destination.write(content)
