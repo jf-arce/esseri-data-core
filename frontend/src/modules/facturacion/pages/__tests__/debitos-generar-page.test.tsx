@@ -348,7 +348,7 @@ describe('DebitosGenerarPage', () => {
     expect(onIrAImportar).not.toHaveBeenCalled()
     expect(screen.queryByText('Débitos rechazados')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Continuar con importar' }))
+    await user.click(screen.getByRole('button', { name: 'Importar resultados' }))
     expect(onIrAImportar).toHaveBeenCalledTimes(1)
   })
 

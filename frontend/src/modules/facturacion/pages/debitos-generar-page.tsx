@@ -238,7 +238,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
               </Button>
             ))}
             <Button onClick={onIrAImportar}>
-              Continuar con importar
+              Importar resultados
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
             <TooltipProvider>
