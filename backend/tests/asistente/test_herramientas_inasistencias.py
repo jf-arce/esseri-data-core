@@ -14,6 +14,7 @@ from src.auth.constants import (
     MODULO_FAMILIAS_ALUMNOS,
 )
 from src.auth.models import Permiso, Rol, RolPermiso
+from src.facturacion.calendario_facturacion import fecha_operativa_argentina
 from src.familias_alumnos.models import Alumno
 from src.inscripciones.models import Asistencia, Inscripcion
 from src.models import Persona
@@ -31,7 +32,7 @@ from tests.asistente.conftest import (
 from tests.asistente.test_herramientas import bloques_de, correr, resultado_de_herramienta
 from tests.asistente.test_privacidad import assert_sin_datos_personales
 
-HOY = date.today()
+HOY = fecha_operativa_argentina()
 HOY_DATETIME = datetime.combine(HOY, time(10, 0))
 
 
