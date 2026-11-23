@@ -175,7 +175,15 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
   ]
 }
 
-function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrarEstado: boolean }) {
+function ContextoCard({
+  contexto,
+  mostrarEstado,
+  compacto = false,
+}: {
+  contexto: Contexto
+  mostrarEstado: boolean
+  compacto?: boolean
+}) {
   const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
   const subtitulo = `Alumno: ${contexto.alumno_nombre}${
     contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''
@@ -187,12 +195,20 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
   return (
     <section
       aria-label="Datos del trámite"
-      className="flex flex-col gap-4 rounded-panel bg-superficie p-5 shadow-card"
+      className={cn(
+        'flex shrink-0 flex-col rounded-panel bg-superficie shadow-card',
+        compacto ? 'gap-2 p-3' : 'gap-4 p-5',
+      )}
     >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+      <div className={cn('flex flex-wrap items-center gap-x-6', compacto ? 'gap-y-2' : 'gap-y-4')}>
         <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta">
-            <FileTextIcon aria-hidden="true" className="size-6" />
+          <span
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta',
+              compacto ? 'size-10' : 'size-12',
+            )}
+          >
+            <FileTextIcon aria-hidden="true" className={compacto ? 'size-5' : 'size-6'} />
           </span>
           <div className="min-w-0">
             <p className="text-base font-semibold text-texto">{tituloTramite}</p>
@@ -225,9 +241,9 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
         )}
       </div>
       {motivo && (
-        <div className="border-t border-borde pt-3">
+        <div className={cn('border-t border-borde', compacto ? 'pt-2' : 'pt-3')}>
           <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
-          <p className="text-sm text-texto">{motivo.valor}</p>
+          <p className={cn('text-sm text-texto', compacto && 'line-clamp-2')}>{motivo.valor}</p>
         </div>
       )}
     </section>
@@ -524,10 +540,16 @@ function Detalle({
           // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
           // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
+          compacto={enPanel}
         />
       )}
-      <Card className="gap-0 rounded-panel bg-superficie py-0 shadow-card">
-        <CardContent className="flex flex-col gap-4 px-5 pt-5 pb-5">
+      <Card
+        className={cn(
+          'gap-0 rounded-panel bg-superficie py-0 shadow-card',
+          enPanel && 'min-h-0 flex-1',
+        )}
+      >
+        <CardContent className={cn('flex flex-col gap-4 px-5 py-4', enPanel && 'min-h-0 flex-1')}>
           {cargando && <Skeleton className="h-24 w-full" />}
           {error && (
             <Alert role="alert">
@@ -588,7 +610,10 @@ function Detalle({
                 const caja = evento.currentTarget
                 alFinal.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 48
               }}
-              className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+              className={cn(
+                'overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta',
+                enPanel ? 'min-h-0 flex-1' : 'max-h-[min(60vh,36rem)]',
+              )}
             >
               <ol className="flex flex-col">
                 {historial.items.map((mensaje, indice) => {
@@ -663,8 +688,8 @@ function Detalle({
           )}
         </CardContent>
         {puedeEnviar && (
-          <CardFooter className="border-t border-borde px-5 py-4">
-            <form onSubmit={enviar} className="flex w-full flex-col gap-3">
+          <CardFooter className="shrink-0 border-t border-borde px-5 py-3">
+            <form onSubmit={enviar} className="flex w-full flex-col gap-2">
               <label htmlFor="mensaje-contextual" className="sr-only">
                 Mensaje
               </label>
@@ -674,7 +699,7 @@ function Detalle({
                 maxLength={5000}
                 disabled={ocupado}
                 placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
-                className="min-h-20 rounded-card-sm border-borde bg-superficie text-sm"
+                className="min-h-16 resize-none rounded-card-sm border-borde bg-superficie text-sm"
                 onChange={(evento) => {
                   clave.current = null
                   setTexto(evento.target.value)
@@ -779,7 +804,12 @@ function Detalle({
       </section>
     )
   return (
-    <section className={cn('flex w-full flex-col gap-4', !enPanel && 'mx-auto max-w-[1100px]')}>
+    <section
+      className={cn(
+        'flex w-full flex-col',
+        enPanel ? 'gap-3 xl:h-full xl:min-h-0' : 'mx-auto max-w-[1100px] gap-4',
+      )}
+    >
       {enPanel && (
         <Link
           to={rutaConversaciones(false)}
@@ -790,8 +820,8 @@ function Detalle({
       )}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">{titulo}</h1>
-          <p className="text-texto-2">{descripcion}</p>
+          <h1 className={cn('font-semibold', enPanel ? 'text-lg' : 'text-2xl')}>{titulo}</h1>
+          <p className={cn('text-texto-2', enPanel && 'text-sm')}>{descripcion}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {estadoHilo}

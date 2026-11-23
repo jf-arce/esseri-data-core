@@ -34,7 +34,7 @@ type Pestana = 'pendiente_administracion' | 'pendiente_familia' | 'resuelta'
 
 const PESTANAS: { valor: Pestana; texto: string }[] = [
   { valor: 'pendiente_administracion', texto: 'Pendientes' },
-  { valor: 'pendiente_familia', texto: 'En espera de la familia' },
+  { valor: 'pendiente_familia', texto: 'En espera' },
   { valor: 'resuelta', texto: 'Resueltas' },
 ]
 
@@ -229,17 +229,17 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
   }, [items, buscar, orden])
 
   return (
-    <section className="flex w-full flex-col gap-4">
+    <section className="flex w-full flex-col gap-4 xl:h-[calc(100svh-7rem)]">
       <PageHeader titulo="Conversaciones" descripcion="Consultas vinculadas a trámites." />
-      <div className="grid min-h-[calc(100svh-12rem)] gap-5 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100svh-12rem)] gap-5 xl:min-h-0 xl:flex-1 xl:grid-rows-1 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
         <div
           className={cn(
-            'min-w-0 flex-col gap-3 rounded-panel bg-superficie p-4 shadow-card',
+            'min-w-0 flex-col gap-3 xl:min-h-0 rounded-panel bg-superficie p-4 shadow-card',
             seleccionada ? 'hidden xl:flex' : 'flex',
           )}
         >
           <Tabs value={pestana} onValueChange={(valor) => setPestana(valor as Pestana)}>
-            <TabsList aria-label="Estado de las conversaciones" className="overflow-x-auto">
+            <TabsList aria-label="Estado de las conversaciones">
               {PESTANAS.map(({ valor, texto }) => (
                 <TabsTrigger key={valor} value={valor}>
                   {texto}
@@ -307,7 +307,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
             )}
           </div>
         </div>
-        <div className={cn('min-w-0', !seleccionada && 'hidden xl:block')}>
+        <div className={cn('min-w-0 xl:min-h-0', !seleccionada && 'hidden xl:block')}>
           {seleccionada ? (
             <ConversacionContextualPage
               key={seleccionada}
@@ -315,7 +315,7 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
               onCambio={() => setRevision((valor) => valor + 1)}
             />
           ) : (
-            <Empty className="min-h-[32rem] rounded-panel bg-superficie shadow-card xl:sticky xl:top-4 xl:h-[calc(100svh-9rem)]">
+            <Empty className="min-h-[32rem] rounded-panel bg-superficie shadow-card xl:h-full">
               <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
                 <MessageCircleMoreIcon aria-hidden="true" />
               </EmptyMedia>
