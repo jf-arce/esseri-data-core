@@ -1,7 +1,6 @@
 # Simulated file collections — demo format v1
 
-This proprietary format is inspired only by the described header/detail/trailer structure
-and semicolon-separated report. The original samples are not included in this change.
+This proprietary format is inspired only by a semicolon-separated per-record report. The original samples are not included in this change.
 It is **not compatible with Payway or Banco Galicia**. No official field positions or
 result-code meanings are assumed. No bank connections or bank-account fields exist.
 Reported collection is a demo payment, **not evidence of bank settlement**.
@@ -221,7 +220,7 @@ guards are authoritative on the server, not just disabled buttons.
 ## Replacement boundary
 
 `backend/src/facturacion/formato_cobranza_simulada.py` owns serialization, parsing,
-field positions, vocabulary and file control totals. Business orchestration consumes
+field positions and vocabulary. Business orchestration consumes
 normalized details and owns request matching (batch code lookup and the calculated
 order behind the short reference, `orden_debitos`) and payment registration. Official bank
 adapters will need authoritative specifications, confirmed codes, encoding, identity
