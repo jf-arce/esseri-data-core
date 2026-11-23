@@ -137,35 +137,57 @@ external delivery; uncertain attempts are retained and are not automatically res
 
 ## File contract
 
-UTF-8, semicolon-delimited CSV, standard CSV quoting, decimal point and exactly two
-decimal places, ISO dates (`YYYY-MM-DD`), UUID references, at most 10 MiB per file and
-no row limit. Download names do not contain demo wording.
+UTF-8, semicolon-delimited CSV with `H` (header), `D` (detail) and `T` (trailer)
+records in both files. Text is uppercase ASCII without accents or `;`, dates are
+`YYYYMMDD`, amounts are 15-digit integers in cents with leading zeros, at most 10 MiB per
+file and no row limit. Download names do not contain demo wording.
 
-New batches in this demo accept CBU only. The request is a flat file with one named
-column-header row and one row per invoice: `ESSERI_DEBITOS_<batch code>.csv`.
-Legacy card serialization remains readable for historical fixtures; new card batches fail
-without creating reservations. No card integration is enabled.
+New batches in this demo accept CBU only. The request is
+`ESSERI_DEBITOS_<batch code>.csv`. Legacy card serialization remains readable for
+historical fixtures; new card batches fail without creating reservations. No card
+integration is enabled.
 
-| File | Ordered columns |
+The file carries a short batch code (`LD-2026-11-001` becomes `LD202611001`; the
+`LD-AAAA-MM-<HEX8>` fallback of unnumbered batches becomes `LD202611<HEX8>`). Each detail
+has an order number (4 digits) and a short reference: the file batch code plus the order,
+for example `LD2026110010001`. The order is not stored: it is the position of the debit
+when the batch debits are sorted by invoice number (then by internal id), recalculated the
+same way on export and on import. Batches are limited to 9999 records by the format.
+
+| Request record | Ordered columns |
 | --- | --- |
-| Debit request (CBU) | `referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu` |
+| Header | `H;ESSERI;DEBITO DIRECTO;<batch>;<date>;<count>;<total>` |
+| Detail | `D;<order>;<reference>;<invoice>;<student>;<CBU>;<amount>;<due date>;<concept>` |
+| Trailer | `T;<count>;<total>` |
 
-The `cbu` (22 digits) and `token_tarjeta` (16 digits) values are **fictional and
+The `cbu` (22 digits) and card token (16 digits) values are **fictional and
 deterministic per invoice**; they are not real accounts or cards. The response keeps a
 single control envelope for the whole batch:
 
-| Record | Ordered columns |
+| Response record | Ordered columns |
 | --- | --- |
-| Response header | `H;ESSERI_SIMULADO;1;RESPUESTA;<batch UUID>;ENTIDAD_FICTICIA;<generation date>` |
-| Response detail | `D;<debit UUID>;<result>;<reported amount>;<processing date>;<rejection code>;<rejection description>` |
-| Response trailer | `T;<detail count>;<reported total>;<collected total>;<rejected total>` |
+| Header | `H;BANCO DEMO;RESPUESTA;<batch>;<date>;<count>` |
+| Detail | `D;<order>;<reference>;<invoice>;<student>;<amount>;<status>;<code>;<description>` |
+| Trailer | `T;<count>;<collected count>;<rejected count>;<collected total>;<rejected total>` |
 
-`COBRADO_SIM` and `RECHAZADO_SIM` are **invented demo results**, not official codes.
-Collected rows have empty rejection fields. Rejected rows require both fields; the
-sample generator cycles through realistic generic reasons such as `SALDO_INSUF`
-(“Saldo insuficiente”), `CBU_INEXISTENTE` (“CBU no encontrado”), `CUENTA_INHABIL` and
-`CUENTA_CERRADA`. Rejected amounts represent the requested amount not collected, not a
-payment. Trailer reported total includes both.
+The file status is `COBRADO` or `RECHAZADO`; the codec translates it to the internal
+`COBRADO_SIM` / `RECHAZADO_SIM` values the database keeps. Collected rows carry code `000`
+and an empty description (same column count as rejected rows). Rejected rows require both
+fields. File codes are translated to the internal ones when reading; an unknown code is
+kept as is, together with the description of the file.
+
+| File code | Internal code | Description |
+| --- | --- | --- |
+| `R01` | `SALDO_INSUF` | Saldo insuficiente |
+| `R02` | `CBU_INEXISTENTE` | CBU no encontrado |
+| `R03` | `CUENTA_INHABIL` | Cuenta inhabilitada para débitos |
+| `R04` | `CUENTA_CERRADA` | Cuenta cerrada o inactiva |
+| `R05` | `DEBITO_CUESTIONADO` | Débito cuestionado por el titular |
+| `R06` | `CONVENIO_VENCIDO` | Convenio de débito vencido |
+
+The statuses and codes are **invented demo values**, not official ones. Rejected amounts
+represent the requested amount not collected, not a payment. The response uses a single
+date for the file and for every row.
 
 The rendition must contain exactly one result for every original debit in the lot, including
 rejected results. Completeness is checked in the review and again under the confirmation lock;
@@ -207,7 +229,8 @@ guards are authoritative on the server, not just disabled buttons.
 
 `backend/src/facturacion/formato_cobranza_simulada.py` owns serialization, parsing,
 field positions, vocabulary and file control totals. Business orchestration consumes
-normalized details and owns request matching and payment registration. Official bank
+normalized details and owns request matching (batch code lookup and the calculated
+order behind the short reference, `orden_debitos`) and payment registration. Official bank
 adapters will need authoritative specifications, confirmed codes, encoding, identity
 and account handling, authentication/authorization, operational reconciliation,
 settlement rules, security review and fixtures approved by each provider. Do not infer
