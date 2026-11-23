@@ -1,6 +1,7 @@
 """Durable review and all-or-nothing confirmation for demo collection responses."""
 
 import uuid
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -231,9 +232,7 @@ def test_archivo_mezclado_con_error_no_aplica_ningun_pago(client_autenticado, db
     facturas, lote = _lote_con_facturas(client_autenticado, db_session, 2)
     base = respuesta(client_autenticado, lote)
     lote_id, filas = formato.leer_respuesta(base)
-    filas[0] = formato.RespuestaDetalle(
-        filas[0].referencia, formato.COBRADO, Decimal("99.00"), filas[0].fecha, "", ""
-    )
+    filas[0] = replace(filas[0], resultado=formato.COBRADO, importe=Decimal("99.00"))
     texto = formato.generar_respuesta(lote_id, date.today(), filas)
 
     revision = preview(client_autenticado, texto).json()
@@ -416,14 +415,7 @@ def test_incidencias_descarga_rechazados_y_errores_completos(client_autenticado,
     base = respuesta(client_autenticado, lote, rechazos_cantidad=1)
     lote_id, filas = formato.leer_respuesta(base)
     pendiente = next(fila for fila in filas if fila.resultado == formato.COBRADO)
-    fila_invalida = formato.RespuestaDetalle(
-        pendiente.referencia,
-        pendiente.resultado,
-        Decimal("99.00"),
-        pendiente.fecha,
-        "",
-        "",
-    )
+    fila_invalida = replace(pendiente, importe=Decimal("99.00"))
     sin_pendiente = [fila for fila in filas if fila.referencia != pendiente.referencia]
     texto = formato.generar_respuesta(lote_id, date.today(), sin_pendiente + [fila_invalida])
     revision = preview(client_autenticado, texto).json()
@@ -493,3 +485,39 @@ def test_permisos(client_solo_lectura):
     assert client_solo_lectura.get(BASE + "/facturas-elegibles").status_code == 403
     assert client_solo_lectura.get(BASE + "/liberaciones").status_code == 403
     assert client_solo_lectura.post(BASE + "/resumen-seleccion", json={}).status_code == 403
+
+
+def test_archivos_ordenan_por_factura_y_la_referencia_corta_resuelve_el_debito(
+    client_autenticado, db_session
+):
+    crear_catalogo_evento_pago_registrado(db_session)
+    _, lote = _lote_con_facturas(client_autenticado, db_session, 3)
+    solicitud = lote["solicitudes"][0]["contenido"]
+    detalles = [linea.split(";") for linea in solicitud.splitlines() if linea.startswith("D;")]
+    assert [d[1] for d in detalles] == ["0001", "0002", "0003"]
+    assert [d[3] for d in detalles] == ["F-0001", "F-0002", "F-0003"]
+    assert all(d[2] == f"{lote['codigo'].replace('-', '')}{d[1]}" for d in detalles)
+
+    texto = respuesta(client_autenticado, lote)
+    revision = preview(client_autenticado, texto).json()
+
+    assert revision["puede_confirmar"] is True
+    assert [i["numero_factura"] for i in revision["items"]] == ["F-0001", "F-0002", "F-0003"]
+    assert [i["referencia"] for i in revision["items"]] == [d[2] for d in detalles]
+
+
+def test_lote_sin_codigo_numerado_se_resuelve_por_el_codigo_de_respaldo(
+    client_autenticado, db_session
+):
+    from src.facturacion.models import LoteCobranza
+
+    crear_catalogo_evento_pago_registrado(db_session)
+    _, lote = _lote_con_facturas(client_autenticado, db_session, 1)
+    db_session.query(LoteCobranza).update({LoteCobranza.codigo: None})
+    db_session.commit()
+
+    texto = respuesta(client_autenticado, lote)
+    revision = preview(client_autenticado, texto).json()
+
+    assert revision["errores"] == []
+    assert revision["lote_id"] == lote["id"]

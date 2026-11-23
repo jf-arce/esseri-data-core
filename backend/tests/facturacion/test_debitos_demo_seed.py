@@ -156,8 +156,8 @@ def test_seed_permite_exportar_las_438_facturas_del_periodo(client_autenticado, 
     creditos = next((v for k, v in contenidos.items() if "CREDITOS" in k), None)
     assert debitos is not None and creditos is None
     assert all("SIMULADO" not in nombre for nombre in contenidos)
-    assert debitos.startswith("referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu")
-    filas = debitos.splitlines()[1:]
+    assert debitos.startswith("H;ESSERI;DEBITO DIRECTO;LD")
+    filas = [linea for linea in debitos.splitlines() if linea.startswith("D;")]
     assert len(filas) == 438
 
     respuesta = client_autenticado.post(

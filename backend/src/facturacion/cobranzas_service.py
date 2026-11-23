@@ -397,15 +397,27 @@ def _filas_lote(db: Session, lote_id: uuid.UUID):
     ).all()
 
 
+def orden_debitos(db: Session, lote_id: uuid.UUID) -> dict[uuid.UUID, int]:
+    """Position (from 1) of each debit in the batch files: by invoice number, then id."""
+    ids = db.scalars(
+        select(DebitoCobranza.id)
+        .outerjoin(FacturaCobranzaDemo, FacturaCobranzaDemo.factura_id == DebitoCobranza.factura_id)
+        .where(DebitoCobranza.lote_id == lote_id)
+        .order_by(FacturaCobranzaDemo.numero.asc().nulls_last(), DebitoCobranza.id)
+    ).all()
+    return {debito_id: orden for orden, debito_id in enumerate(ids, 1)}
+
+
 def _solicitudes(db: Session, lote: LoteCobranza, codigo: str) -> list[ArchivoRead]:
     filas = _filas_lote(db, lote.id)
+    orden = orden_debitos(db, lote.id)
 
     def _fila(fila) -> formato.SolicitudFila:
         (
             referencia,
             factura_id,
             numero,
-            periodo,
+            _periodo,
             medio,
             nombre,
             apellido,
@@ -415,12 +427,11 @@ def _solicitudes(db: Session, lote: LoteCobranza, codigo: str) -> list[ArchivoRe
             _resultado,
             _pago_id,
         ) = fila
-        alumno = f"{apellido}, {nombre}".strip(", ")
+        alumno = f"{apellido} {nombre}".strip()
         return formato.SolicitudFila(
-            referencia=referencia,
+            orden=orden[referencia],
             factura=numero or str(factura_id),
             alumno=alumno,
-            periodo=periodo or "",
             concepto=concepto,
             importe=importe,
             vencimiento=vencimiento,
@@ -433,21 +444,23 @@ def _solicitudes(db: Session, lote: LoteCobranza, codigo: str) -> list[ArchivoRe
 
     archivos = []
     por_medio: dict[str, list[formato.SolicitudFila]] = {}
-    for fila in filas:
+    for fila in sorted(filas, key=lambda fila: orden[fila[0]]):
         medio = "tarjeta" if isinstance(fila.medio, str) and fila.medio == "tarjeta" else "cbu"
         por_medio.setdefault(medio, []).append(_fila(fila))
     if por_medio.get("cbu"):
         archivos.append(
             ArchivoRead(
                 nombre=f"ESSERI_DEBITOS_{codigo}.csv",
-                contenido=formato.generar_solicitud(por_medio["cbu"], "cbu"),
+                contenido=formato.generar_solicitud(codigo, lote.fecha, por_medio["cbu"], "cbu"),
             )
         )
     if por_medio.get("tarjeta"):
         archivos.append(
             ArchivoRead(
                 nombre=f"ESSERI_CREDITOS_{codigo}.csv",
-                contenido=formato.generar_solicitud(por_medio["tarjeta"], "tarjeta"),
+                contenido=formato.generar_solicitud(
+                    codigo, lote.fecha, por_medio["tarjeta"], "tarjeta"
+                ),
             )
         )
     if not archivos:
@@ -729,20 +742,28 @@ def generar_respuesta(
         item.id: formato.MOTIVOS_RECHAZO_SIMULADOS[indice % len(formato.MOTIVOS_RECHAZO_SIMULADOS)]
         for indice, item in enumerate(rechazados)
     }
-    filas = [
-        formato.RespuestaDetalle(
-            item.id,
-            formato.RECHAZADO if item.id in rechazos_set else formato.COBRADO,
-            item.importe,
-            fecha,
-            *(motivos[item.id] if item.id in rechazos_set else ("", "")),
-        )
-        for item in lote.items
-    ]
     codigo = _codigo(lote)
+    orden = orden_debitos(db, lote.id)
+    datos = {fila[0]: fila for fila in _filas_lote(db, lote.id)}
+    filas = []
+    for item in sorted(lote.items, key=lambda item: orden[item.id]):
+        _, factura_id, numero, _periodo, _medio, nombre, apellido, *_ = datos[item.id]
+        rechazado = item.id in rechazos_set
+        filas.append(
+            formato.RespuestaDetalle(
+                orden[item.id],
+                formato.referencia_corta(codigo, orden[item.id]),
+                numero or str(factura_id),
+                f"{apellido} {nombre}".strip(),
+                formato.RECHAZADO if rechazado else formato.COBRADO,
+                item.importe,
+                fecha,
+                *(motivos[item.id] if rechazado else ("", "")),
+            )
+        )
     return ArchivoRead(
         nombre=f"ESSERI_RESPUESTA_{codigo}.csv",
-        contenido=formato.generar_respuesta(lote.id, fecha, filas),
+        contenido=formato.generar_respuesta(codigo, fecha, filas),
     )
 
 

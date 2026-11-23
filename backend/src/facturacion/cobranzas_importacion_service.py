@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from io import StringIO
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import String, cast, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -21,7 +21,7 @@ from src.facturacion.cobranzas_schemas import (
     ImportDetalleRead,
     ImportResumenRead,
 )
-from src.facturacion.cobranzas_service import _bloquear_escritura_sqlite
+from src.facturacion.cobranzas_service import _bloquear_escritura_sqlite, _codigo, orden_debitos
 from src.facturacion.exceptions import (
     CobranzaInvalida,
     ImportacionCobranzaNoEncontrada,
@@ -64,6 +64,25 @@ def _huella(fila: formato.RespuestaDetalle) -> str:
         fila.descripcion,
     ]
     return hashlib.sha256(json.dumps(valores, ensure_ascii=False).encode()).hexdigest()
+
+
+def _lote_id_por_codigo(db: Session, codigo: str) -> uuid.UUID | None:
+    """Resolve `LD-AAAA-MM-NNN` (or the `LD-AAAA-MM-<HEX8>` fallback of unnumbered batches)."""
+    lote_id = db.scalar(select(LoteCobranza.id).where(LoteCobranza.codigo == codigo))
+    if lote_id is not None:
+        return lote_id
+    sufijo = codigo.rsplit("-", 1)[-1]
+    if len(sufijo) != 8:
+        return None
+    candidatos = db.scalars(
+        select(LoteCobranza).where(
+            LoteCobranza.codigo.is_(None),
+            func.lower(func.replace(cast(LoteCobranza.id, String), "-", "")).like(
+                f"{sufijo.lower()}%"
+            ),
+        )
+    ).all()
+    return next((lote.id for lote in candidatos if _codigo(lote) == codigo), None)
 
 
 def _hash_archivo(contenido: str) -> str:
@@ -255,6 +274,11 @@ def _resolver_filas(
         debito.id: debito
         for debito in db.scalars(consulta.execution_options(populate_existing=True)).all()
     }
+    codigo = _codigo(lote)
+    orden = orden_debitos(db, lote.id)
+    por_referencia = {
+        formato.referencia_corta(codigo, orden[debito.id]): debito for debito in debitos.values()
+    }
     ids = {debito.factura_id for debito in debitos.values()}
     info, pagados = _info_facturas(db, ids)
     metodo = db.get(MetodoPago, METODO_ID, populate_existing=True)
@@ -274,7 +298,7 @@ def _resolver_filas(
             estado="error",
             mensaje="",
         )
-        debito = debitos.get(fila.referencia)
+        debito = por_referencia.get(fila.referencia)
         if debito is None:
             detalle.mensaje = "La referencia no pertenece a esta solicitud."
             resultado.append(detalle)
@@ -332,9 +356,15 @@ def previsualizar(
 ) -> ImportacionRead:
     archivo_hash = _hash_archivo(contenido)
     try:
-        lote_id, filas = formato.leer_respuesta(contenido)
+        codigo_lote, filas = formato.leer_respuesta(contenido)
     except formato.FormatoInvalido as exc:
         return ImportacionRead(errores=[str(exc)])
+    lote_id = _lote_id_por_codigo(db, codigo_lote)
+    if lote_id is None:
+        return ImportacionRead(
+            archivo_hash=archivo_hash,
+            errores=["La respuesta no corresponde a una solicitud registrada."],
+        )
     lote = db.scalar(
         select(LoteCobranza)
         .where(LoteCobranza.id == lote_id)
