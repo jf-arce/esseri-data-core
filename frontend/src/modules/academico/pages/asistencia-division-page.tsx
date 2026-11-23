@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   ArrowLeftIcon,
@@ -15,7 +15,7 @@ import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { StatTile } from '@/components/stat-tile'
-import { DivisionSelector } from '@/modules/academico/components/division-selector'
+import { DivisionSelectorCards } from '@/modules/academico/components/division-selector-cards'
 import {
   useAsistenciaDivision,
   type AlumnoConAsistencia,
@@ -93,6 +93,27 @@ export function AsistenciaDivisionPage({
   const [modo, setModo] = useState<'asistente' | 'revision'>('asistente')
   const [indice, setIndice] = useState(0)
   const [copiando, setCopiando] = useState(false)
+
+  // Al elegir una división, la parte para tomar asistencia queda más abajo y no se ve: se lleva
+  // la vista hasta ahí en vez de dejar que la persona tenga que adivinar que hay que scrollear.
+  const contenidoRef = useRef<HTMLDivElement>(null)
+  const scrollearAlContenido = useRef(false)
+
+  useEffect(() => {
+    if (!divisionId || !scrollearAlContenido.current) return
+    scrollearAlContenido.current = false
+    const movimientoReducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    contenidoRef.current?.scrollIntoView({
+      behavior: movimientoReducido ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }, [divisionId])
+
+  function elegirDivision(id: string | null) {
+    // Solo al elegir una división (no al limpiarla por cambiar nivel o año) se baja al contenido.
+    scrollearAlContenido.current = id !== null
+    setDivisionId(id)
+  }
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -308,7 +329,7 @@ export function AsistenciaDivisionPage({
       )}
 
       {/* Selectores */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-texto-2">Fecha</label>
           <input
@@ -321,12 +342,9 @@ export function AsistenciaDivisionPage({
           />
         </div>
 
-        {!divisionIdFijo && <DivisionSelector value={divisionId} onChange={setDivisionId} />}
-
         {divisionId && (
           <Button
             variant="secondary"
-            className="self-end"
             onClick={() => void copiarClaseAnterior()}
             disabled={copiando || cargando}
           >
@@ -336,8 +354,10 @@ export function AsistenciaDivisionPage({
         )}
       </div>
 
+      {!divisionIdFijo && <DivisionSelectorCards value={divisionId} onChange={elegirDivision} />}
+
       {divisionId && (
-        <>
+        <div ref={contenidoRef} className="flex scroll-mt-20 flex-col gap-5">
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 @3xl/main:grid-cols-4">
             <StatTile compact label="Presentes" value={stats.presentes} icon={CheckIcon} />
@@ -475,7 +495,7 @@ export function AsistenciaDivisionPage({
               </div>
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   )
