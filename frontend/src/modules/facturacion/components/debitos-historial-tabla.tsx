@@ -24,6 +24,8 @@ import type { LoteDebitoResumen } from '@/modules/facturacion/types'
 import { formatearFechaFactura, formatearMoneda } from '@/modules/facturacion/utils'
 
 const FILAS_ESQUELETO = 8
+// Filas más altas que la densidad base (h-10) solo en esta tabla.
+const CLASE_FILA = '[&>td]:h-14'
 
 const COLUMNAS_ESQUELETO: ColumnaEsqueleto[] = [
   { tipo: 'texto', ancho: 'h-4 w-32' },
@@ -73,7 +75,7 @@ export function DebitosHistorialTabla({
             <TableHead data-align="end">Facturas</TableHead>
             <TableHead data-align="end">Importe</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead data-align="end">
+            <TableHead data-align="end" className="w-60">
               <span className="sr-only">Acciones</span>
             </TableHead>
           </TableRow>
@@ -83,10 +85,11 @@ export function DebitosHistorialTabla({
             <TableSkeleton
               columnas={COLUMNAS_ESQUELETO}
               filas={Math.min(tamanio, FILAS_ESQUELETO)}
+              claseFila={CLASE_FILA}
             />
           ) : (
             lotes.map((lote) => (
-              <TableRow key={lote.id}>
+              <TableRow key={lote.id} className={CLASE_FILA}>
                 <TableCell className="font-medium tabular-nums">
                   <span className="block max-w-40 truncate" title={lote.codigo}>
                     {lote.codigo}
@@ -106,13 +109,14 @@ export function DebitosHistorialTabla({
                 <TableCell data-align="end">
                   <div className="flex items-center justify-end gap-1">
                     {lote.estado === 'exportado' && (
-                      <Button variant="secondary" onClick={onImportar}>
+                      <Button variant="secondary" size="sm" onClick={onImportar}>
                         Importar resultados
                       </Button>
                     )}
                     {lote.estado === 'en_revision' && lote.importacion_id && (
                       <Button
                         variant="secondary"
+                        size="sm"
                         onClick={() => onContinuarRevision(lote.importacion_id as string)}
                       >
                         Continuar revisión
