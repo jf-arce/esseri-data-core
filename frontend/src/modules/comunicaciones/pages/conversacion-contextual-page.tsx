@@ -179,10 +179,12 @@ function ContextoCard({
   contexto,
   mostrarEstado,
   compacto = false,
+  acciones,
 }: {
   contexto: Contexto
   mostrarEstado: boolean
   compacto?: boolean
+  acciones?: React.ReactNode
 }) {
   const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
   const subtitulo = `Alumno: ${contexto.alumno_nombre}${
@@ -201,7 +203,12 @@ function ContextoCard({
       )}
     >
       <div className={cn('flex flex-wrap items-center gap-x-6', compacto ? 'gap-y-2' : 'gap-y-4')}>
-        <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
+        <div
+          className={cn(
+            'flex min-w-0 items-center gap-3',
+            compacto ? 'flex-1' : 'xl:w-[19rem] xl:shrink-0',
+          )}
+        >
           <span
             className={cn(
               'flex shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta',
@@ -239,11 +246,21 @@ function ContextoCard({
             <Badge variant={estado.variante}>{estado.texto}</Badge>
           </div>
         )}
+        {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
       </div>
       {motivo && (
         <div className={cn('border-t border-borde', compacto ? 'pt-2' : 'pt-3')}>
-          <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
-          <p className={cn('text-sm text-texto', compacto && 'line-clamp-2')}>{motivo.valor}</p>
+          {compacto ? (
+            <p className="truncate text-sm text-texto" title={String(motivo.valor)}>
+              <span className="text-xs font-medium text-texto-2">{motivo.etiqueta}: </span>
+              {motivo.valor}
+            </p>
+          ) : (
+            <>
+              <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
+              <p className="text-sm text-texto">{motivo.valor}</p>
+            </>
+          )}
         </div>
       )}
     </section>
@@ -541,6 +558,14 @@ function Detalle({
           // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
           compacto={enPanel}
+          acciones={
+            enPanel ? (
+              <>
+                {estadoHilo}
+                {gestion}
+              </>
+            ) : undefined
+          }
         />
       )}
       <Card
@@ -699,7 +724,11 @@ function Detalle({
                 maxLength={5000}
                 disabled={ocupado}
                 placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
-                className="min-h-16 resize-none rounded-card-sm border-borde bg-superficie text-sm"
+                rows={2}
+                className={cn(
+                  'resize-none rounded-card-sm border-borde bg-superficie text-sm',
+                  enPanel ? 'min-h-12' : 'min-h-16',
+                )}
                 onChange={(evento) => {
                   clave.current = null
                   setTexto(evento.target.value)
@@ -767,7 +796,9 @@ function Detalle({
                         <PaperclipIcon aria-hidden="true" className="size-4" />
                         Adjuntar archivo
                       </Button>
-                      <span className="text-xs text-texto-2">{CANAL_ADJUNTOS}</span>
+                      <span className={cn('text-xs text-texto-2', enPanel && 'hidden 2xl:inline')}>
+                        {CANAL_ADJUNTOS}
+                      </span>
                     </>
                   )}
                 </div>
@@ -818,7 +849,7 @@ function Detalle({
           ← Volver a conversaciones
         </Link>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className={cn('flex flex-wrap items-start justify-between gap-2', enPanel && 'hidden')}>
         <div>
           <h1 className={cn('font-semibold', enPanel ? 'text-lg' : 'text-2xl')}>{titulo}</h1>
           <p className={cn('text-texto-2', enPanel && 'text-sm')}>{descripcion}</p>
