@@ -99,7 +99,7 @@ def test_bank_file_round_trip_uses_exported_references_and_control_totals(seed_m
         )
         for i in range(1, 29)
     ]
-    exported = codec.generar_solicitud(lote, day, rows, "cbu")
+    exported = codec.generar_solicitud(lote, rows, "cbu")
     result = seed_module.bank_response(exported, day)
     actual_lote, details = codec.leer_respuesta(result)
     assert actual_lote == lote
@@ -115,7 +115,7 @@ def test_bank_file_round_trip_uses_exported_references_and_control_totals(seed_m
     }
     assert next(row for row in details if row.orden == rows[20].orden).codigo == "SALDO_INSUF"
     with pytest.raises(ValueError, match="28"):
-        seed_module.bank_response(codec.generar_solicitud(lote, day, rows[:-1], "cbu"), day)
+        seed_module.bank_response(codec.generar_solicitud(lote, rows[:-1], "cbu"), day)
 
 
 def demo_cli(script, *args, **overrides):

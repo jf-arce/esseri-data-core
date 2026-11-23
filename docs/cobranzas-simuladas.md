@@ -137,46 +137,39 @@ external delivery; uncertain attempts are retained and are not automatically res
 
 ## File contract
 
-UTF-8, semicolon-delimited CSV with `H` (header), `D` (detail) and `T` (trailer)
-records in both files. Text is uppercase ASCII without accents or `;`, dates are
-`YYYYMMDD`, amounts are 15-digit integers in cents with leading zeros, at most 10 MiB per
-file and no row limit. Download names do not contain demo wording.
+UTF-8 (with BOM, so Excel shows accents), semicolon-delimited CSV with one row of column
+titles followed by one row per record. Amounts use a decimal comma (`110000,00`), dates are
+`DD/MM/AAAA`, at most 10 MiB per file and no row limit. Download names do not contain demo
+wording. The files have no header or trailer records: the batch code travels in the
+reference of every row.
 
 New batches in this demo accept CBU only. The request is
 `ESSERI_DEBITOS_<batch code>.csv`. Legacy card serialization remains readable for
 historical fixtures; new card batches fail without creating reservations. No card
 integration is enabled.
 
-The file carries a short batch code (`LD-2026-11-001` becomes `LD202611001`; the
-`LD-AAAA-MM-<HEX8>` fallback of unnumbered batches becomes `LD202611<HEX8>`). Each detail
-has an order number (4 digits) and a short reference: the file batch code plus the order,
-for example `LD2026110010001`. The order is not stored: it is the position of the debit
-when the batch debits are sorted by invoice number (then by internal id), recalculated the
-same way on export and on import. Batches are limited to 9999 records by the format.
+Each row has an order number and a short reference: the file batch code plus the order as 4
+digits (`LD-2026-11-001` becomes `LD202611001`, so order 1 is `LD2026110010001`; the
+`LD-AAAA-MM-<HEX8>` fallback of unnumbered batches becomes `LD202611<HEX8>`). The order is
+not stored: it is the position of the debit when the batch debits are sorted by invoice
+number (then by internal id), recalculated the same way on export and on import. Batches
+are limited to 9999 records by the format. All references of a file must belong to one batch.
 
-| Request record | Ordered columns |
+| File | Ordered columns |
 | --- | --- |
-| Header | `H;ESSERI;DEBITO DIRECTO;<batch>;<date>;<count>;<total>` |
-| Detail | `D;<order>;<reference>;<invoice>;<student>;<CBU>;<amount>;<due date>;<concept>` |
-| Trailer | `T;<count>;<total>` |
+| Request (CBU) | `Orden;Referencia;Factura;Alumno;CBU;Importe;Vencimiento;Concepto` |
+| Response | `Orden;Referencia;Factura;Alumno;Importe;Fecha;Estado;Código;Motivo` |
 
-The `cbu` (22 digits) and card token (16 digits) values are **fictional and
-deterministic per invoice**; they are not real accounts or cards. The response keeps a
-single control envelope for the whole batch:
+The CBU (22 digits) and card token (16 digits) values are **fictional and deterministic
+per invoice**; they are not real accounts or cards. Opening the CSV directly in Excel can
+display the 22-digit CBU in scientific notation; the file itself keeps every digit.
 
-| Response record | Ordered columns |
-| --- | --- |
-| Header | `H;BANCO DEMO;RESPUESTA;<batch>;<date>;<count>` |
-| Detail | `D;<order>;<reference>;<invoice>;<student>;<amount>;<status>;<code>;<description>` |
-| Trailer | `T;<count>;<collected count>;<rejected count>;<collected total>;<rejected total>` |
+The file status is `Cobrado` or `Rechazado`; the codec translates it to the internal
+`COBRADO_SIM` / `RECHAZADO_SIM` values the database keeps. Collected rows leave code and
+reason empty. Rejected rows require both. File codes are translated to the internal ones
+when reading; an unknown code is kept as is, together with the reason of the file.
 
-The file status is `COBRADO` or `RECHAZADO`; the codec translates it to the internal
-`COBRADO_SIM` / `RECHAZADO_SIM` values the database keeps. Collected rows carry code `000`
-and an empty description (same column count as rejected rows). Rejected rows require both
-fields. File codes are translated to the internal ones when reading; an unknown code is
-kept as is, together with the description of the file.
-
-| File code | Internal code | Description |
+| File code | Internal code | Reason |
 | --- | --- | --- |
 | `R01` | `SALDO_INSUF` | Saldo insuficiente |
 | `R02` | `CBU_INEXISTENTE` | CBU no encontrado |
@@ -186,8 +179,8 @@ kept as is, together with the description of the file.
 | `R06` | `CONVENIO_VENCIDO` | Convenio de débito vencido |
 
 The statuses and codes are **invented demo values**, not official ones. Rejected amounts
-represent the requested amount not collected, not a payment. The response uses a single
-date for the file and for every row.
+represent the requested amount not collected, not a payment. There are no control totals
+in the file: the review checks every amount against the frozen request.
 
 The rendition must contain exactly one result for every original debit in the lot, including
 rejected results. Completeness is checked in the review and again under the confirmation lock;

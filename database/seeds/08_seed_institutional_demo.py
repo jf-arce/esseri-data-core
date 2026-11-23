@@ -1408,7 +1408,7 @@ def validate_target(environment: str, database_url: str, enabled: str) -> None:
 
 
 def bank_response(exported: str, processed_on: date) -> str:
-    lote, _, rows = bank.leer_solicitud(exported)
+    lote, rows = bank.leer_solicitud(exported)
     expected = [f"ID-RENDICION-{i:03}" for i in range(1, 29)]
     if len(rows) != 28 or {row.factura for row in rows} != set(expected):
         raise ValueError("Expected all 28 ID-RENDICION invoices in the export.")
@@ -1434,7 +1434,7 @@ def bank_response(exported: str, processed_on: date) -> str:
                 *reason,
             )
         )
-    content = bank.generar_respuesta(lote, processed_on, results)
+    content = bank.generar_respuesta(lote, results)
     bank.leer_respuesta(content)
     return content
 

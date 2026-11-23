@@ -28,7 +28,7 @@ def _detalle(orden=1, resultado=formato.COBRADO, importe="10.00", codigo="", des
         orden,
         formato.referencia_corta(LOTE, orden),
         f"F-202611-{orden:04d}",
-        "ACUNA ALMA",
+        "Acuña Alma",
         resultado,
         Decimal(importe),
         FECHA,
@@ -37,34 +37,37 @@ def _detalle(orden=1, resultado=formato.COBRADO, importe="10.00", codigo="", des
     )
 
 
-def test_solicitud_cbu_tiene_cabecera_detalle_y_cierre():
+def test_solicitud_cbu_tiene_titulos_y_valores_legibles():
     filas = [_solicitud(1), _solicitud(2, "125.50")]
-    lineas = formato.generar_solicitud(LOTE, FECHA, filas, "cbu").splitlines()
+    texto = formato.generar_solicitud(LOTE, filas, "cbu")
+    lineas = texto.removeprefix(formato.BOM).splitlines()
     cbu = formato.cbu_sintetico(uuid.UUID(int=1))
-    assert lineas[0] == "H;ESSERI;DEBITO DIRECTO;LD202611001;20261123;2;000000011012550"
+    assert texto.startswith(formato.BOM)
+    assert lineas[0] == "Orden;Referencia;Factura;Alumno;CBU;Importe;Vencimiento;Concepto"
     assert lineas[1] == (
-        f"D;0001;LD2026110010001;F-202611-0001;ACUNA ALMA;{cbu};000000011000000;"
-        "20261123;CUOTA EDUCATIVA, 11/2026"
+        f"1;LD2026110010001;F-202611-0001;Acuña Alma;{cbu};110000,00;23/11/2026;"
+        "Cuota educativa, 11/2026"
     )
-    assert lineas[-1] == "T;2;000000011012550"
-    assert len(lineas) == 4
+    assert lineas[2].split(";")[5] == "125,50"
+    assert len(lineas) == 3
 
 
-def test_solicitud_tarjeta_usa_token_y_tipo_propio():
+def test_solicitud_tarjeta_usa_token_y_titulo_propio():
     fila = _solicitud(medio_dato=formato.token_tarjeta_sintetico(uuid.uuid4()))
-    lineas = formato.generar_solicitud(LOTE, FECHA, [fila], "tarjeta").splitlines()
-    assert lineas[0].startswith("H;ESSERI;TARJETA;")
-    assert len(lineas[1].split(";")) == 9
+    lineas = formato.generar_solicitud(LOTE, [fila], "tarjeta").splitlines()
+    assert "Token de tarjeta" in lineas[0] and "CBU" not in lineas[0]
+    assert len(lineas[1].split(";")) == 8
 
 
-def test_solicitud_ida_y_vuelta_con_texto_ascii():
+def test_solicitud_ida_y_vuelta():
     filas = [_solicitud(1), _solicitud(2)]
-    texto = formato.generar_solicitud(LOTE, FECHA, filas, "cbu")
-    codigo, fecha, leidas = formato.leer_solicitud(texto)
-    assert (codigo, fecha) == (LOTE, FECHA)
-    assert [f.alumno for f in leidas] == ["ACUNA ALMA", "ACUNA ALMA"]
-    assert [f.orden for f in leidas] == [1, 2]
-    assert texto.isascii()
+    texto = formato.generar_solicitud(LOTE, filas, "cbu")
+    codigo, leidas = formato.leer_solicitud(texto)
+    assert codigo == LOTE
+    assert [(f.orden, f.alumno, f.importe) for f in leidas] == [
+        (1, "Acuña Alma", Decimal("110000.00")),
+        (2, "Acuña Alma", Decimal("110000.00")),
+    ]
 
 
 def test_datos_sinteticos_son_deterministas_y_ficticios():
@@ -82,13 +85,13 @@ def test_datos_sinteticos_son_deterministas_y_ficticios():
 
 def test_solicitud_rechaza_vacia_medio_desconocido_y_admite_mas_de_quinientos():
     with pytest.raises(formato.FormatoInvalido):
-        formato.generar_solicitud(LOTE, FECHA, [], "cbu")
+        formato.generar_solicitud(LOTE, [], "cbu")
     with pytest.raises(formato.FormatoInvalido):
-        formato.generar_solicitud(LOTE, FECHA, [_solicitud()], "efectivo")
+        formato.generar_solicitud(LOTE, [_solicitud()], "efectivo")
     filas = [_solicitud(i, "1.00") for i in range(1, 502)]
-    texto = formato.generar_solicitud(LOTE, FECHA, filas, "cbu")
-    assert len(texto.splitlines()) == 503
-    assert len(formato.leer_solicitud(texto)[2]) == 501
+    texto = formato.generar_solicitud(LOTE, filas, "cbu")
+    assert len(texto.splitlines()) == 502
+    assert len(formato.leer_solicitud(texto)[1]) == 501
 
 
 def test_referencia_corta_ida_y_vuelta_y_limites():
@@ -107,78 +110,70 @@ def test_respuesta_con_cobro_y_rechazo_traduce_estados_y_codigos():
         _detalle(1, importe="100.50"),
         _detalle(2, formato.RECHAZADO, "20.00", "SALDO_INSUF", "Saldo insuficiente"),
     ]
-    texto = formato.generar_respuesta(LOTE, FECHA, filas)
-    lineas = texto.splitlines()
-    assert lineas[0] == "H;BANCO DEMO;RESPUESTA;LD202611001;20261123;2"
-    assert (
-        lineas[1] == "D;0001;LD2026110010001;F-202611-0001;ACUNA ALMA;000000000010050;COBRADO;000;"
-    )
-    assert lineas[2].endswith(";000000000002000;RECHAZADO;R01;SALDO INSUFICIENTE")
-    assert lineas[3] == "T;2;1;1;000000000010050;000000000002000"
+    texto = formato.generar_respuesta(LOTE, filas)
+    lineas = texto.removeprefix(formato.BOM).splitlines()
+    assert lineas[0] == "Orden;Referencia;Factura;Alumno;Importe;Fecha;Estado;Código;Motivo"
+    assert lineas[1] == "1;LD2026110010001;F-202611-0001;Acuña Alma;100,50;23/11/2026;Cobrado;;"
+    assert lineas[2].endswith(";20,00;23/11/2026;Rechazado;R01;Saldo insuficiente")
     assert formato.leer_respuesta(texto) == (LOTE, filas)
-    assert "COBRADO_SIM" not in texto and texto.isascii()
+    assert "COBRADO_SIM" not in texto
 
 
-def test_codigo_de_rechazo_desconocido_se_conserva_con_la_descripcion_del_archivo():
+def test_codigo_de_rechazo_desconocido_se_conserva_con_el_motivo_del_archivo():
     fila = _detalle(1, formato.RECHAZADO, "5.00", "ZZ9", "Motivo propio")
-    texto = formato.generar_respuesta(LOTE, FECHA, [fila])
-    _, (leida,) = formato.leer_respuesta(texto)
-    assert (leida.codigo, leida.descripcion) == ("ZZ9", "MOTIVO PROPIO")
+    _, (leida,) = formato.leer_respuesta(formato.generar_respuesta(LOTE, [fila]))
+    assert (leida.codigo, leida.descripcion) == ("ZZ9", "Motivo propio")
 
 
 @pytest.mark.parametrize(
     "cambio",
     [
-        "total",
-        "cantidad",
         "estado",
         "importe",
         "fecha",
-        "entidad",
-        "tipo",
+        "titulos",
         "columna",
-        "cierre",
+        "vacio",
         "duplicado",
         "referencia",
-        "codigo_cobrado",
+        "cobrado_con_codigo",
+        "otro_lote",
     ],
 )
 def test_archivo_invalido_se_rechaza_completo(cambio):
-    texto = formato.generar_respuesta(LOTE, FECHA, [_detalle()])
-    detalle = "D;0001;LD2026110010001;F-202611-0001;ACUNA ALMA;000000000001000;COBRADO;000;\n"
+    texto = formato.generar_respuesta(LOTE, [_detalle(1), _detalle(2)])
+    detalle = "1;LD2026110010001;F-202611-0001;Acuña Alma;10,00;23/11/2026;Cobrado;;"
     assert detalle in texto
     cambios = {
-        "total": ("T;1;1;0;000000000001000", "T;1;1;0;000000000002000"),
-        "cantidad": ("T;1;1;0", "T;2;1;0"),
-        "estado": (";COBRADO;", ";COBRADO_SIM;"),
-        "importe": (";000000000001000;", ";10.00;"),
-        "fecha": (";20261123;", ";2026-11-23;"),
-        "entidad": ("BANCO DEMO", "BANCO REAL"),
-        "tipo": (";RESPUESTA;", ";SOLICITUD;"),
-        "columna": (";COBRADO;", ";EXTRA;COBRADO;"),
-        "cierre": ("T;1;1;0;000000000001000;000000000000000\n", ""),
-        "duplicado": ("T;1;", detalle + "T;2;"),
+        "estado": (";Cobrado;", ";COBRADO_SIM;"),
+        "importe": (";10,00;", ";10.00;"),
+        "fecha": (";23/11/2026;Cobrado;;\r\n2", ";2026-11-23;Cobrado;;\r\n2"),
+        "titulos": ("Orden;Referencia", "Nro;Referencia"),
+        "columna": (";Cobrado;", ";Extra;Cobrado;"),
+        "vacio": (texto.split("\r\n", 1)[1], ""),
+        "duplicado": ("\r\n2;LD2026110010002", f"\r\n{detalle}\r\n2;LD2026110010002"),
         "referencia": ("LD2026110010001", "LD2026110010002"),
-        "codigo_cobrado": (";COBRADO;000;", ";COBRADO;R01;"),
+        "cobrado_con_codigo": ("Cobrado;;", "Cobrado;R01;"),
+        "otro_lote": ("LD2026110010002", "LD2026110020002"),
     }
     with pytest.raises(formato.FormatoInvalido):
         formato.leer_respuesta(texto.replace(*cambios[cambio]))
 
 
-def test_total_admite_la_suma_de_cien_importes_validos():
+def test_acepta_archivo_sin_bom_y_con_saltos_unix():
+    texto = formato.generar_respuesta(LOTE, [_detalle(1)])
+    sin_bom = texto.removeprefix(formato.BOM).replace("\r\n", "\n")
+    assert formato.leer_respuesta(sin_bom) == formato.leer_respuesta(texto)
+
+
+def test_importes_grandes_y_fuera_de_rango():
     filas = [_detalle(i, importe="9999999999.99") for i in range(1, 101)]
-    texto = formato.generar_respuesta(LOTE, FECHA, filas)
-    assert formato.leer_respuesta(texto) == (LOTE, filas)
-
-
-def test_importe_fuera_de_rango_no_se_escribe():
-    with pytest.raises(formato.FormatoInvalido):
-        formato.generar_respuesta(LOTE, FECHA, [_detalle(importe="1.005")])
-    with pytest.raises(formato.FormatoInvalido):
-        formato.generar_respuesta(LOTE, FECHA, [_detalle(importe="10000000000000.00")])
+    assert formato.leer_respuesta(formato.generar_respuesta(LOTE, filas)) == (LOTE, filas)
+    for invalido in ("1.005", "10000000000.00"):
+        with pytest.raises(formato.FormatoInvalido):
+            formato.generar_respuesta(LOTE, [_detalle(importe=invalido)])
 
 
 def test_respuesta_admite_mas_de_quinientos_registros():
     filas = [_detalle(i) for i in range(1, 502)]
-    texto = formato.generar_respuesta(LOTE, FECHA, filas)
-    assert formato.leer_respuesta(texto) == (LOTE, filas)
+    assert formato.leer_respuesta(formato.generar_respuesta(LOTE, filas)) == (LOTE, filas)

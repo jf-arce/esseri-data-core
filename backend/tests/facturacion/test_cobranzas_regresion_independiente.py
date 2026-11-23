@@ -308,7 +308,7 @@ def test_s11_error_semantico_mezclado_bloquea_todo(client_autenticado, db_sessio
     lineas = texto.splitlines()
     # replace one valid reference with an unknown order, keeping envelope counts/totals
     partes = lineas[1].split(";")
-    partes[1], partes[2] = "9999", f"{partes[2][:-4]}9999"
+    partes[0], partes[1] = "9999", f"{partes[1][:-4]}9999"
     lineas[1] = ";".join(partes)
     texto = "\n".join(lineas) + "\n"
     r = _preview(client_autenticado, texto)
@@ -682,7 +682,6 @@ def test_preview_lote_inexistente_y_legacy_factura_ids(client_autenticado, db_se
     antes = _huella(db_session)
     contenido = fmt.generar_respuesta(
         "LD-2026-11-999",
-        date(2026, 11, 11),
         [
             fmt.RespuestaDetalle(
                 1,
@@ -716,9 +715,9 @@ def test_incidencias_csv_incluye_errores_y_rechazos(client_autenticado, db_sessi
     debito = db_session.query(DebitoCobranza).order_by(DebitoCobranza.id).first()
     texto = _respuesta(client_autenticado, lote, rechazar=[debito.id])
     lineas = texto.splitlines()
-    cobrado = next(i for i, linea in enumerate(lineas) if ";COBRADO;" in linea)
+    cobrado = next(i for i, linea in enumerate(lineas) if ";Cobrado;" in linea)
     partes = lineas[cobrado].split(";")
-    partes[1], partes[2] = "9999", f"{partes[2][:-4]}9999"
+    partes[0], partes[1] = "9999", f"{partes[1][:-4]}9999"
     lineas[cobrado] = ";".join(partes)
     texto = "\n".join(lineas) + "\n"
     p = _preview(client_autenticado, texto).json()

@@ -451,7 +451,7 @@ def _solicitudes(db: Session, lote: LoteCobranza, codigo: str) -> list[ArchivoRe
         archivos.append(
             ArchivoRead(
                 nombre=f"ESSERI_DEBITOS_{codigo}.csv",
-                contenido=formato.generar_solicitud(codigo, lote.fecha, por_medio["cbu"], "cbu"),
+                contenido=formato.generar_solicitud(codigo, por_medio["cbu"], "cbu"),
             )
         )
     if por_medio.get("tarjeta"):
@@ -763,7 +763,7 @@ def generar_respuesta(
         )
     return ArchivoRead(
         nombre=f"ESSERI_RESPUESTA_{codigo}.csv",
-        contenido=formato.generar_respuesta(codigo, fecha, filas),
+        contenido=formato.generar_respuesta(codigo, filas),
     )
 
 

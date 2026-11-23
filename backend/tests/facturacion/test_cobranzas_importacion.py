@@ -126,7 +126,7 @@ def test_rendicion_incompleta_no_confirma_ni_libera_reservas(client_autenticado,
     crear_catalogo_evento_pago_registrado(db_session)
     _, lote = _lote_con_facturas(client_autenticado, db_session, 3)
     lote_id, filas = formato.leer_respuesta(respuesta(client_autenticado, lote))
-    incompleta = formato.generar_respuesta(lote_id, date.today(), filas[:2])
+    incompleta = formato.generar_respuesta(lote_id, filas[:2])
     antes = _conteos(db_session)
 
     revision = preview(client_autenticado, incompleta).json()
@@ -233,7 +233,7 @@ def test_archivo_mezclado_con_error_no_aplica_ningun_pago(client_autenticado, db
     base = respuesta(client_autenticado, lote)
     lote_id, filas = formato.leer_respuesta(base)
     filas[0] = replace(filas[0], resultado=formato.COBRADO, importe=Decimal("99.00"))
-    texto = formato.generar_respuesta(lote_id, date.today(), filas)
+    texto = formato.generar_respuesta(lote_id, filas)
 
     revision = preview(client_autenticado, texto).json()
     assert revision["puede_confirmar"] is False
@@ -417,7 +417,7 @@ def test_incidencias_descarga_rechazados_y_errores_completos(client_autenticado,
     pendiente = next(fila for fila in filas if fila.resultado == formato.COBRADO)
     fila_invalida = replace(pendiente, importe=Decimal("99.00"))
     sin_pendiente = [fila for fila in filas if fila.referencia != pendiente.referencia]
-    texto = formato.generar_respuesta(lote_id, date.today(), sin_pendiente + [fila_invalida])
+    texto = formato.generar_respuesta(lote_id, sin_pendiente + [fila_invalida])
     revision = preview(client_autenticado, texto).json()
     assert revision["puede_confirmar"] is False
 
@@ -493,17 +493,17 @@ def test_archivos_ordenan_por_factura_y_la_referencia_corta_resuelve_el_debito(
     crear_catalogo_evento_pago_registrado(db_session)
     _, lote = _lote_con_facturas(client_autenticado, db_session, 3)
     solicitud = lote["solicitudes"][0]["contenido"]
-    detalles = [linea.split(";") for linea in solicitud.splitlines() if linea.startswith("D;")]
-    assert [d[1] for d in detalles] == ["0001", "0002", "0003"]
-    assert [d[3] for d in detalles] == ["F-0001", "F-0002", "F-0003"]
-    assert all(d[2] == f"{lote['codigo'].replace('-', '')}{d[1]}" for d in detalles)
+    detalles = [linea.split(";") for linea in solicitud.splitlines()[1:]]
+    assert [d[0] for d in detalles] == ["1", "2", "3"]
+    assert [d[2] for d in detalles] == ["F-0001", "F-0002", "F-0003"]
+    assert all(d[1] == f"{lote['codigo'].replace('-', '')}{int(d[0]):04d}" for d in detalles)
 
     texto = respuesta(client_autenticado, lote)
     revision = preview(client_autenticado, texto).json()
 
     assert revision["puede_confirmar"] is True
     assert [i["numero_factura"] for i in revision["items"]] == ["F-0001", "F-0002", "F-0003"]
-    assert [i["referencia"] for i in revision["items"]] == [d[2] for d in detalles]
+    assert [i["referencia"] for i in revision["items"]] == [d[1] for d in detalles]
 
 
 def test_lote_sin_codigo_numerado_se_resuelve_por_el_codigo_de_respaldo(

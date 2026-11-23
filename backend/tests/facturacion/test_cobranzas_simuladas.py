@@ -75,7 +75,7 @@ def test_generar_previsualizar_confirmar_y_reintentar(client_autenticado, db_ses
     assert len(lote["solicitudes"]) == 1
     archivo_solicitud = lote["solicitudes"][0]
     assert archivo_solicitud["nombre"].startswith("ESSERI_")
-    assert archivo_solicitud["contenido"].startswith("H;ESSERI;DEBITO DIRECTO;LD")
+    assert archivo_solicitud["contenido"].startswith("\ufeffOrden;Referencia;Factura;")
     assert ";LD2" in archivo_solicitud["contenido"].splitlines()[1]
     texto = respuesta_demo(client_autenticado, lote)
     previo_pagos = db_session.query(Pago).count()
@@ -134,7 +134,7 @@ def test_rechazo_no_genera_pago_y_no_se_puede_cambiar(client_autenticado, db_ses
     assert db_session.query(Pago).count() == 0
 
 
-@pytest.mark.parametrize("caso", ["referencia", "lote", "importe", "pagada", "total", "duplicado"])
+@pytest.mark.parametrize("caso", ["referencia", "lote", "importe", "pagada", "duplicado"])
 def test_invalido_no_aplica_ni_cambia_factura(client_autenticado, db_session, factura_demo, caso):
     factura, _ = factura_demo
     lote = crear_lote(client_autenticado, factura)
@@ -150,11 +150,9 @@ def test_invalido_no_aplica_ni_cambia_factura(client_autenticado, db_session, fa
     elif caso == "pagada":
         factura.estado = "pagada"
         db_session.commit()
-    texto = formato.generar_respuesta(lote_id, date.today(), [fila])
-    if caso == "total":
-        texto = texto.replace(";000000000010000;", ";000000000009900;")
-    elif caso == "duplicado":
-        texto = formato.generar_respuesta(lote_id, date.today(), [fila, fila])
+    texto = formato.generar_respuesta(lote_id, [fila])
+    if caso == "duplicado":
+        texto = formato.generar_respuesta(lote_id, [fila, fila])
     estado_anterior = db_session.get(Factura, factura.id).estado
 
     revision = preview(client_autenticado, texto)
