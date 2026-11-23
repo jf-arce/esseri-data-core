@@ -306,9 +306,9 @@ def test_s11_error_semantico_mezclado_bloquea_todo(client_autenticado, db_sessio
     fs, lote = _lote_con_facturas(client_autenticado, db_session, 3)
     texto = _respuesta(client_autenticado, lote)
     lineas = texto.splitlines()
-    # replace one valid reference with an unknown UUID, keeping envelope counts/totals
+    # replace one valid reference with an unknown order, keeping envelope counts/totals
     partes = lineas[1].split(";")
-    partes[1] = str(uuid.uuid4())
+    partes[0], partes[1] = "9999", f"{partes[1][:-4]}9999"
     lineas[1] = ";".join(partes)
     texto = "\n".join(lineas) + "\n"
     r = _preview(client_autenticado, texto)
@@ -681,11 +681,18 @@ def test_preview_lote_inexistente_y_legacy_factura_ids(client_autenticado, db_se
 
     antes = _huella(db_session)
     contenido = fmt.generar_respuesta(
-        uuid.uuid4(),
-        date(2026, 11, 11),
+        "LD-2026-11-999",
         [
             fmt.RespuestaDetalle(
-                uuid.uuid4(), fmt.COBRADO, Decimal("100.00"), date(2026, 11, 11), "", ""
+                1,
+                fmt.referencia_corta("LD-2026-11-999", 1),
+                "F-202611-0001",
+                "PEREZ ANA",
+                fmt.COBRADO,
+                Decimal("100.00"),
+                date(2026, 11, 11),
+                "",
+                "",
             )
         ],
     )
@@ -708,9 +715,10 @@ def test_incidencias_csv_incluye_errores_y_rechazos(client_autenticado, db_sessi
     debito = db_session.query(DebitoCobranza).order_by(DebitoCobranza.id).first()
     texto = _respuesta(client_autenticado, lote, rechazar=[debito.id])
     lineas = texto.splitlines()
-    partes = lineas[2].split(";")
-    partes[1] = str(uuid.uuid4())
-    lineas[2] = ";".join(partes)
+    cobrado = next(i for i, linea in enumerate(lineas) if ";Cobrado;" in linea)
+    partes = lineas[cobrado].split(";")
+    partes[0], partes[1] = "9999", f"{partes[1][:-4]}9999"
+    lineas[cobrado] = ";".join(partes)
     texto = "\n".join(lineas) + "\n"
     p = _preview(client_autenticado, texto).json()
     assert p["puede_confirmar"] is False

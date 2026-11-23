@@ -1,7 +1,6 @@
 # Simulated file collections — demo format v1
 
-This proprietary format is inspired only by the described header/detail/trailer structure
-and semicolon-separated report. The original samples are not included in this change.
+This proprietary format is inspired only by a semicolon-separated per-record report. The original samples are not included in this change.
 It is **not compatible with Payway or Banco Galicia**. No official field positions or
 result-code meanings are assumed. No bank connections or bank-account fields exist.
 Reported collection is a demo payment, **not evidence of bank settlement**.
@@ -137,35 +136,50 @@ external delivery; uncertain attempts are retained and are not automatically res
 
 ## File contract
 
-UTF-8, semicolon-delimited CSV, standard CSV quoting, decimal point and exactly two
-decimal places, ISO dates (`YYYY-MM-DD`), UUID references, at most 10 MiB per file and
-no row limit. Download names do not contain demo wording.
+UTF-8 (with BOM, so Excel shows accents), semicolon-delimited CSV with one row of column
+titles followed by one row per record. Amounts use a decimal comma (`110000,00`), dates are
+`DD/MM/AAAA`, at most 10 MiB per file and no row limit. Download names do not contain demo
+wording. The files have no header or trailer records: the batch code travels in the
+reference of every row.
 
-New batches in this demo accept CBU only. The request is a flat file with one named
-column-header row and one row per invoice: `ESSERI_DEBITOS_<batch code>.csv`.
-Legacy card serialization remains readable for historical fixtures; new card batches fail
-without creating reservations. No card integration is enabled.
+New batches in this demo accept CBU only. The request is
+`ESSERI_DEBITOS_<batch code>.csv`. Legacy card serialization remains readable for
+historical fixtures; new card batches fail without creating reservations. No card
+integration is enabled.
+
+Each row has an order number and a short reference: the file batch code plus the order as 4
+digits (`LD-2026-11-001` becomes `LD202611001`, so order 1 is `LD2026110010001`; the
+`LD-AAAA-MM-<HEX8>` fallback of unnumbered batches becomes `LD202611<HEX8>`). The order is
+not stored: it is the position of the debit when the batch debits are sorted by invoice
+number (then by internal id), recalculated the same way on export and on import. Batches
+are limited to 9999 records by the format. All references of a file must belong to one batch.
 
 | File | Ordered columns |
 | --- | --- |
-| Debit request (CBU) | `referencia;factura;alumno;periodo;concepto;importe;vencimiento;cbu` |
+| Request (CBU) | `Orden;Referencia;Factura;Alumno;CBU;Importe;Vencimiento;Concepto` |
+| Response | `Orden;Referencia;Factura;Alumno;Importe;Fecha;Estado;Código;Motivo` |
 
-The `cbu` (22 digits) and `token_tarjeta` (16 digits) values are **fictional and
-deterministic per invoice**; they are not real accounts or cards. The response keeps a
-single control envelope for the whole batch:
+The CBU (22 digits) and card token (16 digits) values are **fictional and deterministic
+per invoice**; they are not real accounts or cards. Opening the CSV directly in Excel can
+display the 22-digit CBU in scientific notation; the file itself keeps every digit.
 
-| Record | Ordered columns |
-| --- | --- |
-| Response header | `H;ESSERI_SIMULADO;1;RESPUESTA;<batch UUID>;ENTIDAD_FICTICIA;<generation date>` |
-| Response detail | `D;<debit UUID>;<result>;<reported amount>;<processing date>;<rejection code>;<rejection description>` |
-| Response trailer | `T;<detail count>;<reported total>;<collected total>;<rejected total>` |
+The file status is `Cobrado` or `Rechazado`; the codec translates it to the internal
+`COBRADO_SIM` / `RECHAZADO_SIM` values the database keeps. Collected rows leave code and
+reason empty. Rejected rows require both. File codes are translated to the internal ones
+when reading; an unknown code is kept as is, together with the reason of the file.
 
-`COBRADO_SIM` and `RECHAZADO_SIM` are **invented demo results**, not official codes.
-Collected rows have empty rejection fields. Rejected rows require both fields; the
-sample generator cycles through realistic generic reasons such as `SALDO_INSUF`
-(“Saldo insuficiente”), `CBU_INEXISTENTE` (“CBU no encontrado”), `CUENTA_INHABIL` and
-`CUENTA_CERRADA`. Rejected amounts represent the requested amount not collected, not a
-payment. Trailer reported total includes both.
+| File code | Internal code | Reason |
+| --- | --- | --- |
+| `R01` | `SALDO_INSUF` | Saldo insuficiente |
+| `R02` | `CBU_INEXISTENTE` | CBU no encontrado |
+| `R03` | `CUENTA_INHABIL` | Cuenta inhabilitada para débitos |
+| `R04` | `CUENTA_CERRADA` | Cuenta cerrada o inactiva |
+| `R05` | `DEBITO_CUESTIONADO` | Débito cuestionado por el titular |
+| `R06` | `CONVENIO_VENCIDO` | Convenio de débito vencido |
+
+The statuses and codes are **invented demo values**, not official ones. Rejected amounts
+represent the requested amount not collected, not a payment. There are no control totals
+in the file: the review checks every amount against the frozen request.
 
 The rendition must contain exactly one result for every original debit in the lot, including
 rejected results. Completeness is checked in the review and again under the confirmation lock;
@@ -206,8 +220,9 @@ guards are authoritative on the server, not just disabled buttons.
 ## Replacement boundary
 
 `backend/src/facturacion/formato_cobranza_simulada.py` owns serialization, parsing,
-field positions, vocabulary and file control totals. Business orchestration consumes
-normalized details and owns request matching and payment registration. Official bank
+field positions and vocabulary. Business orchestration consumes
+normalized details and owns request matching (batch code lookup and the calculated
+order behind the short reference, `orden_debitos`) and payment registration. Official bank
 adapters will need authoritative specifications, confirmed codes, encoding, identity
 and account handling, authentication/authorization, operational reconciliation,
 settlement rules, security review and fixtures approved by each provider. Do not infer

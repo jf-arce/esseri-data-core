@@ -39,7 +39,7 @@ La app fija `timezone=UTC` en cada sesión de Postgres (`src/database.py`), así
 ### Demo de cobranzas por archivo
 
 El recorrido de débitos automáticos es una demostración operativa: los archivos tienen marca
-propia (`ESSERI_SIMULADO`), no son compatibles con Payway, Banco Galicia ni ningún banco real y
+propia (CSV con títulos de columna y referencia corta por fila), no son compatibles con Payway, Banco Galicia ni ningún banco real y
 no acreditan fondos. El formato y el recorrido están documentados en
 [Cobranzas por archivo](../docs/cobranzas-simuladas.md). La API vive en
 `/facturacion/cobranzas-simuladas` y requiere `facturacion.crear` en todos sus endpoints,

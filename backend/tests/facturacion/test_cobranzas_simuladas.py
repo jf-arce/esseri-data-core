@@ -2,6 +2,7 @@
 
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from threading import Barrier
@@ -74,8 +75,8 @@ def test_generar_previsualizar_confirmar_y_reintentar(client_autenticado, db_ses
     assert len(lote["solicitudes"]) == 1
     archivo_solicitud = lote["solicitudes"][0]
     assert archivo_solicitud["nombre"].startswith("ESSERI_")
-    assert lote["items"][0]["referencia"] in archivo_solicitud["contenido"]
-    assert archivo_solicitud["contenido"].startswith("referencia;factura;alumno;")
+    assert archivo_solicitud["contenido"].startswith("\ufeffOrden;Referencia;Factura;")
+    assert ";LD2" in archivo_solicitud["contenido"].splitlines()[1]
     texto = respuesta_demo(client_autenticado, lote)
     previo_pagos = db_session.query(Pago).count()
     previo_eventos = db_session.query(EventLog).count()
@@ -133,7 +134,7 @@ def test_rechazo_no_genera_pago_y_no_se_puede_cambiar(client_autenticado, db_ses
     assert db_session.query(Pago).count() == 0
 
 
-@pytest.mark.parametrize("caso", ["referencia", "lote", "importe", "pagada", "total", "duplicado"])
+@pytest.mark.parametrize("caso", ["referencia", "lote", "importe", "pagada", "duplicado"])
 def test_invalido_no_aplica_ni_cambia_factura(client_autenticado, db_session, factura_demo, caso):
     factura, _ = factura_demo
     lote = crear_lote(client_autenticado, factura)
@@ -141,23 +142,17 @@ def test_invalido_no_aplica_ni_cambia_factura(client_autenticado, db_session, fa
     lote_id, filas = formato.leer_respuesta(texto)
     fila = filas[0]
     if caso == "referencia":
-        fila = formato.RespuestaDetalle(
-            uuid.uuid4(), fila.resultado, fila.importe, fila.fecha, "", ""
-        )
+        fila = replace(fila, orden=fila.orden + 1)
     elif caso == "lote":
-        lote_id = uuid.uuid4()
+        lote_id = "LD-2099-01-001"
     elif caso == "importe":
-        fila = formato.RespuestaDetalle(
-            fila.referencia, fila.resultado, Decimal("99.00"), fila.fecha, "", ""
-        )
+        fila = replace(fila, importe=Decimal("99.00"))
     elif caso == "pagada":
         factura.estado = "pagada"
         db_session.commit()
-    texto = formato.generar_respuesta(lote_id, date.today(), [fila])
-    if caso == "total":
-        texto = texto.replace("T;1;100.00", "T;1;99.00")
-    elif caso == "duplicado":
-        texto = formato.generar_respuesta(lote_id, date.today(), [fila, fila])
+    texto = formato.generar_respuesta(lote_id, [fila])
+    if caso == "duplicado":
+        texto = formato.generar_respuesta(lote_id, [fila, fila])
     estado_anterior = db_session.get(Factura, factura.id).estado
 
     revision = preview(client_autenticado, texto)

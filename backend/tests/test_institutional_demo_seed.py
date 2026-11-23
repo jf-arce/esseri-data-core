@@ -80,20 +80,18 @@ def test_billing_baseline_is_balanced_and_live_invoices_have_no_results(seed_mod
 
 
 def test_bank_file_round_trip_uses_exported_references_and_control_totals(seed_module):
-    import uuid
     from collections import Counter
     from decimal import Decimal
 
     from src.facturacion import formato_cobranza_simulada as codec
 
     day = date(2026, 11, 18)
-    lote = uuid.uuid4()
+    lote = "LD-2026-11-001"
     rows = [
         codec.SolicitudFila(
-            uuid.uuid4(),
+            i,
             f"ID-RENDICION-{i:03}",
             f"Alumno {i}",
-            "2026-11",
             "Cuota",
             Decimal("125000.00"),
             day,
@@ -101,11 +99,13 @@ def test_bank_file_round_trip_uses_exported_references_and_control_totals(seed_m
         )
         for i in range(1, 29)
     ]
-    exported = codec.generar_solicitud(list(reversed(rows)), "cbu")
-    result = seed_module.bank_response(exported, lote, day)
+    exported = codec.generar_solicitud(lote, rows, "cbu")
+    result = seed_module.bank_response(exported, day)
     actual_lote, details = codec.leer_respuesta(result)
     assert actual_lote == lote
-    assert {row.referencia for row in details} == {row.referencia for row in rows}
+    assert {row.referencia for row in details} == {
+        codec.referencia_corta(lote, row.orden) for row in rows
+    }
     assert Counter(row.resultado for row in details) == {"COBRADO_SIM": 20, "RECHAZADO_SIM": 8}
     assert Counter(row.codigo for row in details if row.codigo) == {
         "SALDO_INSUF": 5,
@@ -113,12 +113,9 @@ def test_bank_file_round_trip_uses_exported_references_and_control_totals(seed_m
         "CUENTA_INHABIL": 1,
         "CUENTA_CERRADA": 1,
     }
-    assert (
-        next(row for row in details if row.referencia == rows[20].referencia).codigo
-        == "SALDO_INSUF"
-    )
+    assert next(row for row in details if row.orden == rows[20].orden).codigo == "SALDO_INSUF"
     with pytest.raises(ValueError, match="28"):
-        seed_module.bank_response(codec.generar_solicitud(rows[:-1], "cbu"), lote, day)
+        seed_module.bank_response(codec.generar_solicitud(lote, rows[:-1], "cbu"), day)
 
 
 def demo_cli(script, *args, **overrides):
@@ -445,9 +442,7 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     login("admin")
     lot, pending = export("ID-RENDICION"), export("ID-RESERVA")
     assert (lot["cantidad_facturas"], pending["cantidad_facturas"]) == (28, 2)
-    content = seed_module.bank_response(
-        lot["solicitudes"][0]["contenido"], uuid.UUID(lot["id"]), reference
-    )
+    content = seed_module.bank_response(lot["solicitudes"][0]["contenido"], reference)
     preview = ok(client.post(f"{prefix}/previsualizar", json={"contenido": content}))
     assert preview["puede_confirmar"] is True
     assert db.query(Pago).count() == 750

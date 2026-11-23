@@ -314,9 +314,7 @@ def test_exportar_crea_codigo_humano_y_reserva_factura(client_autenticado, db_se
     archivo = lote["solicitudes"][0]
     assert archivo["nombre"].startswith(("ESSERI_DEBITOS", "ESSERI_CREDITOS"))
     assert "SIMULADO" not in archivo["nombre"]
-    assert archivo["contenido"].startswith(
-        "referencia;factura;alumno;periodo;concepto;importe;vencimiento;"
-    )
+    assert archivo["contenido"].startswith("\ufeffOrden;Referencia;")
 
     debito = db_session.scalar(select(DebitoCobranza))
     assert debito.reserva_activa is True
