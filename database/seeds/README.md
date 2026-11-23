@@ -4,6 +4,10 @@ For the isolated 2025–2027 dataset and final debit demo, see
 [Institutional demo](institutional-demo.md). Do not combine seed `08` with
 the independent demos in `04`–`07`.
 
+Para la presentación final hay una variante del `08` con nombres y códigos de uso real (sin
+etiquetas "demo") y más historial de workflows: ver [Presentación final](presentacion.md)
+(`09_seed_presentacion.py`). Tampoco se combina con `04`–`08`.
+
 Scripts o archivos de carga inicial: catálogos que el sistema necesita para funcionar (niveles educativos, roles, métodos de pago, etc.), según lo documentado en `docs/diccionario-de-datos-esseri.md` (sección "Tablas Catálogo — Datos a Precargar").
 
 El diccionario clasifica los catálogos en 3 grupos según qué tan segura es la carga:

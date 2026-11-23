@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/api/client'
 import type { MateriaCurso } from '@/modules/academico/types'
 import { useHorarioFamilia } from '@/modules/academico/hooks/use-horario-familia'
@@ -58,6 +58,10 @@ describe('PortalFamiliaCalendarioPage', () => {
       error: false,
     })
     mockedUseEventosFamilia.mockReturnValue({ eventos: [], cargando: false, error: false })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   function renderizar() {
@@ -122,6 +126,9 @@ describe('PortalFamiliaCalendarioPage', () => {
   })
 
   it('abre el detalle de la materia en un popover al hacer clic', async () => {
+    // La grilla muestra la semana actual: se fija la fecha para que el día no dependa del reloj.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 18, 12))
     mockedUseHorarioFamilia.mockReturnValue({
       materiasCurso: [
         crearMateria(),
