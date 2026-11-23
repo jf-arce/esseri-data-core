@@ -27,6 +27,14 @@ Levanta 4 servicios en la misma red interna:
 **Demo del 10/11:** el paso a paso para dejarla andando en una notebook, con los scripts que
 preparan, verifican y restauran el entorno, está en [`infra/demo.md`](demo.md).
 
+**Base de la presentación:** `docker-compose.presentacion.yml` es un override que apunta el backend a la base descartable de la presentación (ver `database/seeds/presentacion.md`). La URL no está en el repo: cada integrante define `PRESENTACION_DATABASE_URL` en su shell o en `infra/.env`.
+
+```bash
+cd infra
+PRESENTACION_DATABASE_URL=postgresql://esseri_presentacion:<clave-local>@postgres:5432/esseri_presentacion \
+  docker compose -f docker-compose.yml -f docker-compose.presentacion.yml up
+```
+
 Para bajar el stack sin perder los datos locales: `docker compose down`. **No usar** `docker compose down -v` salvo que se quiera borrar deliberadamente los volúmenes de Postgres y n8n.
 
 ## Backup y recuperación de PostgreSQL
