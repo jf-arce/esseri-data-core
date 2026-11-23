@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatearMoneda } from '@/modules/facturacion/utils'
@@ -186,16 +187,16 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
   return (
     <section
       aria-label="Datos del trámite"
-      className="flex flex-col gap-4 rounded-[20px] border border-borde bg-superficie p-5 shadow-card"
+      className="flex flex-col gap-4 rounded-panel bg-superficie p-5 shadow-card"
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-[13px] bg-violeta-suave text-violeta">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta">
             <FileTextIcon aria-hidden="true" className="size-6" />
           </span>
           <div className="min-w-0">
-            <p className="text-[16px] font-semibold text-texto">{tituloTramite}</p>
-            <p className="truncate text-[13px] text-texto-2">{subtitulo}</p>
+            <p className="text-base font-semibold text-texto">{tituloTramite}</p>
+            <p className="truncate text-xs text-texto-2">{subtitulo}</p>
           </div>
         </div>
         {datos.map((dato) => {
@@ -206,15 +207,13 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
               className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
               {Icono && (
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-violeta-suave/60 text-violeta">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
                   <Icono aria-hidden="true" className="size-4.5" />
                 </span>
               )}
               <div className={cn('min-w-0', !Icono && 'lg:pl-0')}>
-                <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">
-                  {dato.etiqueta}
-                </p>
-                <p className="text-[14px] font-semibold text-texto">{dato.valor}</p>
+                <p className="text-xs font-medium tracking-[.02em] text-texto-2">{dato.etiqueta}</p>
+                <p className="text-sm font-semibold text-texto">{dato.valor}</p>
               </div>
             </div>
           )
@@ -227,8 +226,8 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
       </div>
       {motivo && (
         <div className="border-t border-borde pt-3">
-          <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
-          <p className="text-[14px] text-texto">{motivo.valor}</p>
+          <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
+          <p className="text-sm text-texto">{motivo.valor}</p>
         </div>
       )}
     </section>
@@ -240,7 +239,7 @@ function Avatar({ mensaje, propio }: { mensaje: Mensaje; propio: boolean }) {
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
+        'flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
         propio ? 'bg-violeta-suave text-violeta' : 'bg-fila-hover text-texto-2',
       )}
     >
@@ -263,16 +262,16 @@ function Adjuntos({
       {mensaje.adjuntos?.map((adjunto) => (
         <li
           key={adjunto.id}
-          className="flex items-center gap-3 rounded-[12px] border border-borde bg-superficie px-3 py-2"
+          className="flex items-center gap-3 rounded-card-sm border border-borde bg-superficie px-3 py-2"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-violeta-suave/60 text-violeta">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
             <FileTextIcon aria-hidden="true" className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-texto">
+            <span className="block truncate text-xs font-semibold text-texto">
               {adjunto.nombre}
             </span>
-            <span className="block text-[12px] text-texto-2">
+            <span className="block text-xs text-texto-2">
               {adjunto.tipo_contenido.includes('pdf') ? 'PDF' : 'Imagen'} ·{' '}
               {tamano(adjunto.tamanio)}
             </span>
@@ -527,7 +526,7 @@ function Detalle({
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
         />
       )}
-      <Card className="gap-0 rounded-[20px] border border-borde bg-superficie py-0 shadow-card">
+      <Card className="gap-0 rounded-panel bg-superficie py-0 shadow-card">
         <CardContent className="flex flex-col gap-4 px-5 pt-5 pb-5">
           {cargando && <Skeleton className="h-24 w-full" />}
           {error && (
@@ -536,17 +535,15 @@ function Detalle({
             </Alert>
           )}
           {!cargando && !hilo && puedeIniciar && (
-            <div className="flex flex-col items-center gap-2 py-8 text-center">
-              <span className="flex size-16 items-center justify-center rounded-full bg-violeta-suave text-violeta">
-                <MessageCircleIcon aria-hidden="true" className="size-7" />
-              </span>
-              <h2 className="text-[19px] font-semibold text-texto">
-                Todavía no hay una conversación sobre {referencia}
-              </h2>
-              <p className="max-w-md text-[15px] text-texto-2">
+            <Empty className="py-8">
+              <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
+                <MessageCircleIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>Todavía no hay una conversación sobre {referencia}</EmptyTitle>
+              <EmptyDescription>
                 Escribí tu consulta para comunicarte con Administración.
-              </p>
-            </div>
+              </EmptyDescription>
+            </Empty>
           )}
           {hilo && historial.siguiente && (
             <Button
@@ -607,7 +604,7 @@ function Detalle({
                           className="mt-4 flex justify-center first:mt-0"
                           aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
                         >
-                          <span className="rounded-full bg-fila-hover px-3 py-1 text-[12px] font-medium text-texto-2">
+                          <span className="rounded-full bg-fila-hover px-3 py-1 text-xs font-medium text-texto-2">
                             {fechaLarga(mensaje.created_at)}
                           </span>
                         </li>
@@ -631,7 +628,7 @@ function Detalle({
                           )}
                         >
                           {!agrupado && (
-                            <p className="mb-1 text-[12px] text-texto-2">
+                            <p className="mb-1 text-xs text-texto-2">
                               <strong className="font-semibold text-texto">{mensaje.autor}</strong>
                               {' · '}
                               <time dateTime={mensaje.created_at}>
@@ -641,7 +638,7 @@ function Detalle({
                           )}
                           <div
                             className={cn(
-                              'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-texto',
+                              'w-full rounded-card-sm px-3.5 py-3 text-sm text-texto',
                               esPropio ? 'bg-violeta-suave' : 'bg-fila-hover',
                             )}
                           >
@@ -677,7 +674,7 @@ function Detalle({
                 maxLength={5000}
                 disabled={ocupado}
                 placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
-                className="min-h-20 rounded-[12px] border-borde bg-superficie text-[14px]"
+                className="min-h-20 rounded-card-sm border-borde bg-superficie text-sm"
                 onChange={(evento) => {
                   clave.current = null
                   setTexto(evento.target.value)
@@ -688,7 +685,7 @@ function Detalle({
                   {archivos.map((archivo) => (
                     <li
                       key={`${archivo.name}-${archivo.lastModified}`}
-                      className="flex items-center gap-2 rounded-full bg-violeta-suave/60 py-1 pr-1 pl-3 text-[12px] text-texto"
+                      className="flex items-center gap-2 rounded-full bg-violeta-suave/60 py-1 pr-1 pl-3 text-xs text-texto"
                     >
                       <span className="max-w-52 truncate">{archivo.name}</span>
                       <button
@@ -738,14 +735,14 @@ function Detalle({
                       <Button
                         type="button"
                         variant="secondary"
-                        className="rounded-[10px]"
+                        className="rounded-lg"
                         disabled={ocupado}
                         onClick={() => selectorArchivos.current?.click()}
                       >
                         <PaperclipIcon aria-hidden="true" className="size-4" />
                         Adjuntar archivo
                       </Button>
-                      <span className="text-[12px] text-texto-2">{CANAL_ADJUNTOS}</span>
+                      <span className="text-xs text-texto-2">{CANAL_ADJUNTOS}</span>
                     </>
                   )}
                 </div>
