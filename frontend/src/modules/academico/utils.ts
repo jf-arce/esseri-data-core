@@ -7,7 +7,7 @@ import type {
   MateriaCurso,
   TipoAsistencia,
 } from '@/modules/academico/types'
-import { capitalizar } from '@/lib/texto'
+export { MOTIVOS_JUSTIFICACION, etiquetaMotivoJustificacion } from '@/lib/motivos'
 
 export const VARIANTE_ESTADO_SOLICITUD_PERIODO = {
   pendiente: 'advertencia',
@@ -16,25 +16,6 @@ export const VARIANTE_ESTADO_SOLICITUD_PERIODO = {
   cancelada: 'neutro',
   revocada: 'neutro',
 } as const satisfies Record<EstadoSolicitudPeriodo, 'advertencia' | 'exito' | 'error' | 'neutro'>
-
-export const MOTIVOS_JUSTIFICACION = [
-  { value: 'enfermedad', label: 'Enfermedad' },
-  { value: 'certificado_medico', label: 'Certificado médico' },
-  { value: 'turno_estudio_medico', label: 'Turno/estudio médico' },
-  { value: 'viaje_familiar', label: 'Viaje familiar' },
-  { value: 'motivo_familiar_personal', label: 'Motivo familiar/personal' },
-  { value: 'actividad_autorizada_esseri', label: 'Actividad autorizada ESSERI' },
-  { value: 'otro', label: 'Otro' },
-] as const
-
-const ETIQUETAS_MOTIVO_JUSTIFICACION = Object.fromEntries(
-  MOTIVOS_JUSTIFICACION.map(({ value, label }) => [value, label]),
-)
-
-export function etiquetaMotivoJustificacion(motivo: string | null): string {
-  if (!motivo) return 'Otro'
-  return ETIQUETAS_MOTIVO_JUSTIFICACION[motivo] ?? capitalizar(motivo)
-}
 
 // Normaliza un texto para comparar búsquedas sin depender de mayúsculas, acentos ni del signo
 // de grado: así "3c" encuentra "3°C" y "jose" encuentra "José".

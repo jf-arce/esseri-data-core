@@ -70,11 +70,28 @@ LEVELS = {
     "Nivel Secundario": range(1, 7),
 }
 SUBJECTS = (
-    ("Juego y expresión", "Exploración del ambiente", "Música", "Educación Física", "Arte"),
+    (
+        "Juego y expresión",
+        "Exploración del ambiente",
+        "Música",
+        "Educación Física",
+        "Arte",
+    ),
     ("Lengua", "Matemática", "Ciencias Naturales", "Educación Física", "Inglés"),
     ("Lengua y Literatura", "Matemática", "Biología", "Educación Física", "Inglés"),
 )
-NAMES = ("Alma", "Bruno", "Clara", "Dante", "Elena", "Felipe", "Inés", "Joaquín", "Lara", "Mateo")
+NAMES = (
+    "Alma",
+    "Bruno",
+    "Clara",
+    "Dante",
+    "Elena",
+    "Felipe",
+    "Inés",
+    "Joaquín",
+    "Lara",
+    "Mateo",
+)
 SURNAMES = (
     "Acuña",
     "Beltrán",
@@ -195,10 +212,18 @@ CONVERSATION_TEXTS = (
         "Sí, ya fue revisada y aprobada.",
         None,
     ),
-    ("Informamos que viajamos por trabajo del 24 al 26; ¿la solicitud quedó cargada?", None, None),
+    (
+        "Informamos que viajamos por trabajo del 24 al 26; ¿la solicitud quedó cargada?",
+        None,
+        None,
+    ),
     ("¿La solicitud de ausencia por tres días ya fue aprobada?", None, None),
     ("Necesitamos reprogramar los días informados por un cambio de vuelo.", None, None),
-    ("¿Hace falta certificado para una ausencia programada de cuatro días?", None, None),
+    (
+        "¿Hace falta certificado para una ausencia programada de cuatro días?",
+        None,
+        None,
+    ),
     ("Enviamos la solicitud para el viaje de egresados; ¿falta algo?", None, None),
     ("Queríamos saber si la ausencia por tratamiento médico fue aprobada.", None, None),
     ("La solicitud quedó pendiente; ¿podemos acercar la documentación?", None, None),
@@ -261,7 +286,10 @@ def teaching(db: Session, teachers: list[Docente], reference: date) -> list[Divi
                 db.flush()
                 # Each subject has two weekly slots. At every given slot there is
                 # exactly one different teacher per division (the offset is injective).
-                for day, hour in ((subject_index + 1, 8), ((subject_index + 2) % 5 + 1, 10)):
+                for day, hour in (
+                    (subject_index + 1, 8),
+                    ((subject_index + 2) % 5 + 1, 10),
+                ):
                     add(
                         db,
                         HorarioMateriaCurso,
@@ -446,9 +474,11 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
             if day.weekday() >= 5:
                 continue
             bucket = (i * 11 + day.toordinal()) % 37
-            kind = {0: "ausente_injustificado", 1: "ausente_justificado", 2: "tardanza"}.get(
-                bucket, "presente"
-            )
+            kind = {
+                0: "ausente_injustificado",
+                1: "ausente_justificado",
+                2: "tardanza",
+            }.get(bucket, "presente")
             add(
                 db,
                 Asistencia,
@@ -536,7 +566,12 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
             )
         )
         bills.append(
-            (i, emitted, bill, amount if paid and not partial else amount / 2 if partial else None)
+            (
+                i,
+                emitted,
+                bill,
+                amount if paid and not partial else amount / 2 if partial else None,
+            )
         )
     db.flush()
 
@@ -724,17 +759,30 @@ def communication_examples(division_id: uuid.UUID, reference: date):
 
 
 def seed_communication_pdf(
-    db: Session, key: str, comunicacion_id: uuid.UUID, filename: str, title: str, body: str
+    db: Session,
+    key: str,
+    comunicacion_id: uuid.UUID,
+    filename: str,
+    title: str,
+    body: str,
 ) -> None:
     from PIL import Image, ImageDraw
 
     from src.comunicaciones.adjuntos_service import ESTADO_LIMPIO, inspeccionar
-    from src.comunicaciones.models import ComunicacionAdjunto, ComunicacionAdjuntoContenido
+    from src.comunicaciones.models import (
+        ComunicacionAdjunto,
+        ComunicacionAdjuntoContenido,
+    )
 
     # Only locally generated fixture bytes enter this path; actual uploads still require scanning.
     image = Image.new("RGB", (850, 640), "white")
     draw = ImageDraw.Draw(image)
-    draw.text((52, 48), "Colegio ESSERI · Material de demostración", fill="#54327A", font_size=19)
+    draw.text(
+        (52, 48),
+        "Colegio ESSERI · Material de demostración",
+        fill="#54327A",
+        font_size=19,
+    )
     draw.text((52, 105), fill(title, 48), fill="#241E2E", font_size=25, spacing=8)
     draw.multiline_text(
         (52, 205),
@@ -1019,7 +1067,11 @@ def seed_conversations(db: Session, school: School, reference: date) -> None:
     from src.academico.models import JustificacionInasistencia, SolicitudAusenciaPeriodo
     from src.auth.models import Usuario
     from src.comunicaciones.conversaciones_schemas import MensajeCreate
-    from src.comunicaciones.conversaciones_service import abrir, cambiar_estado, responder
+    from src.comunicaciones.conversaciones_service import (
+        abrir,
+        cambiar_estado,
+        responder,
+    )
     from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
 
     protagonists_excluded = school.families[20].id
@@ -1049,7 +1101,10 @@ def seed_conversations(db: Session, school: School, reference: date) -> None:
     operator = db.get(Usuario, stable_id("account:workflow"))
     if operator is None:
         raise RuntimeError("Missing the system administrator demo account.")
-    administratives = ((school.admin, "administracion"), (operator, "administrador_del_sistema"))
+    administratives = (
+        (school.admin, "administracion"),
+        (operator, "administrador_del_sistema"),
+    )
 
     threads = Session(bind=db.connection(), join_transaction_mode="create_savepoint")
     with threads:
@@ -1109,11 +1164,15 @@ def seed_conversations(db: Session, school: School, reference: date) -> None:
 
 
 def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
-    from src.ia_sugerencias.service import detectar_patrones
     from src.models import EventLog
     from src.workflows.despacho_service import procesar_eventos_pendientes
     from src.workflows.eventos_service import emit_event
-    from src.workflows.models import Notificacion, TipoEvento, WorkflowExecution, WorkflowRule
+    from src.workflows.models import (
+        Notificacion,
+        TipoEvento,
+        WorkflowExecution,
+        WorkflowRule,
+    )
     from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
     from src.workflows.schemas import WorkflowRuleCreate
 
@@ -1172,7 +1231,164 @@ def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
             summary = procesar_eventos_pendientes(history, limite=1)
             if summary.eventos_procesados != 1 or summary.ejecuciones_creadas != 1:
                 raise RuntimeError("The offline historical workflow did not execute as expected.")
-        detectar_patrones(history, hoy=reference, usuario_id=school.admin.id)
+
+
+def seed_audit(db: Session, school: School, reference: date) -> int:
+    """Un alta auditada por cada entidad cargada, para que la demo tenga trazabilidad real.
+
+    Usa ids determinísticos y consulta una sola vez los registros existentes: una segunda
+    ejecución devuelve 0 y no duplica nada. Las fechas acompañan al dato (emisión, pago,
+    asistencia) para que el historial no quede todo en el mismo instante.
+    """
+    from src.academico.models import (
+        Anio,
+        AsignacionDocente,
+        Division,
+        Docente,
+        JustificacionInasistencia,
+        Materia,
+        MateriaCurso,
+        SolicitudAusenciaPeriodo,
+    )
+    from src.comunicaciones.models import Comunicacion, ConversacionContextual
+    from src.facturacion.models import Factura, Pago
+    from src.familias_alumnos.models import Alumno, Familia, FamiliaAlumno
+    from src.inscripciones.models import Asistencia, Inscripcion
+    from src.models import AuditLog, Persona
+    from src.proveedores_compras.models import Proveedor
+
+    existentes: dict[str, set[uuid.UUID]] = {}
+    for entidad, audit_id in db.execute(select(AuditLog.entidad, AuditLog.id)):
+        existentes.setdefault(entidad, set()).add(audit_id)
+
+    def alta(entidad: str, entidad_id: uuid.UUID, valor: str, fecha: datetime) -> int:
+        audit_id = stable_id(f"audit:{entidad}:{entidad_id}")
+        ids = existentes.setdefault(entidad, set())
+        if audit_id in ids:
+            return 0
+        ids.add(audit_id)
+        db.add(
+            AuditLog(
+                id=audit_id,
+                entidad=entidad,
+                entidad_id=entidad_id,
+                campo="__alta__",
+                valor_anterior=None,
+                valor_nuevo=valor,
+                fecha=fecha,
+                usuario_id=school.admin.id,
+                actor_tipo="usuario",
+                origen="seed",
+                motivo="Carga inicial de la demo institucional",
+            )
+        )
+        return 1
+
+    def dia(day: date, hour: int = 12) -> datetime:
+        return datetime.combine(day, time(hour))
+
+    creados = 0
+    atras = reference - timedelta(days=120)
+
+    for anio in db.scalars(select(Anio)):
+        creados += alta("ANIO", anio.id, f"{anio.numero}° año", dia(atras))
+    for division in db.scalars(select(Division)):
+        creados += alta("DIVISION", division.id, division.nombre, dia(atras))
+    for materia in db.scalars(select(Materia)):
+        creados += alta("MATERIA", materia.id, materia.nombre, dia(atras))
+    for curso, materia, division in db.execute(
+        select(MateriaCurso.id, Materia.nombre, Division.nombre)
+        .join(Materia, Materia.id == MateriaCurso.materia_id)
+        .join(Division, Division.id == MateriaCurso.division_id)
+    ):
+        creados += alta("MATERIA_CURSO", curso, f"{materia} · {division}", dia(atras))
+    for docente, nombre, apellido in db.execute(
+        select(Docente.id, Persona.nombre, Persona.apellido).join(
+            Persona, Persona.id == Docente.persona_id
+        )
+    ):
+        creados += alta("DOCENTE", docente, f"{apellido}, {nombre}", dia(atras))
+    for assignment, ciclo in db.execute(
+        select(AsignacionDocente.id, AsignacionDocente.ciclo_lectivo)
+    ):
+        creados += alta("ASIGNACION_DOCENTE", assignment, f"Ciclo {ciclo}", dia(atras))
+
+    for usuario in db.scalars(select(Usuario)):
+        creados += alta("USUARIO", usuario.id, usuario.email, dia(atras))
+
+    for familia, nombre, apellido in db.execute(
+        select(Familia.id, Persona.nombre, Persona.apellido).join(
+            Persona, Persona.id == Familia.persona_id
+        )
+    ):
+        creados += alta("FAMILIA", familia, f"{apellido}, {nombre}", dia(atras))
+    for alumno, nombre, apellido, legajo in db.execute(
+        select(Alumno.id, Persona.nombre, Persona.apellido, Alumno.numero_legajo).join(
+            Persona, Persona.id == Alumno.persona_id
+        )
+    ):
+        creados += alta("ALUMNO", alumno, f"{apellido}, {nombre} · {legajo}", dia(atras))
+    for vinculo, parentesco in db.execute(select(FamiliaAlumno.id, FamiliaAlumno.parentesco)):
+        creados += alta(
+            "FAMILIA_ALUMNO",
+            vinculo,
+            f"Vínculo {parentesco or 'familiar'}",
+            dia(atras),
+        )
+
+    for inscripcion in db.scalars(select(Inscripcion)):
+        creados += alta(
+            "INSCRIPCION",
+            inscripcion.id,
+            f"Ciclo {inscripcion.ciclo_lectivo} · {inscripcion.estado}",
+            dia(inscripcion.fecha_inscripcion, 9),
+        )
+    for asistencia in db.scalars(select(Asistencia)):
+        creados += alta("ASISTENCIA", asistencia.id, asistencia.tipo, dia(asistencia.fecha))
+    for justificacion in db.scalars(select(JustificacionInasistencia)):
+        creados += alta(
+            "JUSTIFICACION_INASISTENCIA",
+            justificacion.id,
+            justificacion.estado,
+            justificacion.fecha_carga,
+        )
+    for solicitud in db.scalars(select(SolicitudAusenciaPeriodo)):
+        creados += alta(
+            "SOLICITUD_AUSENCIA_PERIODO",
+            solicitud.id,
+            solicitud.estado,
+            solicitud.fecha_carga,
+        )
+
+    for factura in db.scalars(select(Factura)):
+        creados += alta(
+            "FACTURA",
+            factura.id,
+            f"{factura.estado} · ${factura.monto_total}",
+            dia(factura.fecha_emision, 8),
+        )
+    for pago in db.scalars(select(Pago)):
+        creados += alta("PAGO", pago.id, f"${pago.monto} · {pago.estado}", dia(pago.fecha, 10))
+
+    for proveedor in db.scalars(select(Proveedor)):
+        creados += alta("PROVEEDOR", proveedor.id, proveedor.nombre, dia(atras))
+    for comunicacion in db.scalars(select(Comunicacion)):
+        creados += alta(
+            "COMUNICACION",
+            comunicacion.id,
+            comunicacion.asunto,
+            comunicacion.created_at,
+        )
+    for conversacion in db.scalars(select(ConversacionContextual)):
+        fecha = conversacion.updated_at
+        creados += alta(
+            "CONVERSACION_CONTEXTUAL",
+            conversacion.id,
+            conversacion.estado,
+            fecha.replace(tzinfo=None) if fecha.tzinfo else fecha,
+        )
+    db.flush()
+    return creados
 
 
 def validate_target(environment: str, database_url: str, enabled: str) -> None:
@@ -1250,7 +1466,9 @@ def response_command(args: list[str]) -> None:
     options = parser.parse_args(args)
     try:
         content = bank_response(
-            options.export.read_text(encoding="utf-8-sig"), options.batch, options.processing_date
+            options.export.read_text(encoding="utf-8-sig"),
+            options.batch,
+            options.processing_date,
         )
         with options.output.open("x", encoding="utf-8", newline="") as destination:
             destination.write(content)
@@ -1272,7 +1490,9 @@ def main() -> None:
         if not 3 <= args.reference_date.month <= 11:
             raise RuntimeError("Choose a reference date within the March–November school term.")
         validate_target(
-            settings.ENVIRONMENT, settings.DATABASE_URL, os.getenv("ESSERI_DEMO_SEED_ENABLED", "")
+            settings.ENVIRONMENT,
+            settings.DATABASE_URL,
+            os.getenv("ESSERI_DEMO_SEED_ENABLED", ""),
         )
         if os.getenv("PGHOSTADDR"):
             raise RuntimeError("Unset PGHOSTADDR; the demo must use the explicit loopback host.")
@@ -1301,6 +1521,7 @@ def main() -> None:
                 seed_offline_workflow(db, school, args.reference_date)
                 seed_history(db, school, args.reference_date)
                 seed_conversations(db, school, args.reference_date)
+                seed_audit(db, school, args.reference_date)
         print(
             "Institutional demo loaded."
             if school

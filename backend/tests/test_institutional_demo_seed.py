@@ -268,7 +268,6 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
     from src.comunicaciones.models import ConversacionContextual, MensajeConversacion
     from src.facturacion.cobranzas_importacion_service import METODO_ID
     from src.facturacion.models import DebitoCobranza, MetodoPago
-    from src.ia_sugerencias.models import IaSugerencia
     from src.models import AuditLog, EventLog
     from src.notificaciones.models import NotificacionInterna
     from src.workflows import n8n_client
@@ -301,12 +300,30 @@ def test_institutional_demo_through_real_api(seed_module, db_session, client, mo
         == 0
     )
     seed_module.seed_conversations(db, school, reference)
+    creados = seed_module.seed_audit(db, school, reference)
+    assert creados > 0
+    assert seed_module.seed_audit(db, school, reference) == 0
     db.commit()
     assert db.query(WorkflowExecution).filter_by(estado="exitoso").count() == 1
-    assert db.query(IaSugerencia).count() > 0
     assert db.query(ConversacionContextual).count() == 24
     assert db.query(MensajeConversacion).count() == 48
     assert db.query(SolicitudAusenciaPeriodo).count() == 8
+    for entidad in (
+        "ALUMNO",
+        "FAMILIA",
+        "INSCRIPCION",
+        "ASISTENCIA",
+        "JUSTIFICACION_INASISTENCIA",
+        "FACTURA",
+        "PAGO",
+        "PROVEEDOR",
+        "COMUNICACION",
+        "CONVERSACION_CONTEXTUAL",
+    ):
+        assert db.query(AuditLog).filter_by(entidad=entidad).count() > 0, entidad
+    assert (
+        db.query(AuditLog).filter_by(entidad="ASISTENCIA").count() == db.query(Asistencia).count()
+    )
 
     def login(alias):
         client.cookies.clear()

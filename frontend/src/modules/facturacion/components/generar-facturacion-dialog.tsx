@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -19,25 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { generarFacturacion } from '@/modules/facturacion/services/generar-facturacion'
 import { previsualizarGeneracionFacturacion } from '@/modules/facturacion/services/previsualizar-generacion-facturacion'
 import type { ResumenGeneracionFacturacion } from '@/modules/facturacion/types'
-import { formatearMoneda } from '@/modules/facturacion/utils'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
+import { formatearMoneda, MESES } from '@/modules/facturacion/utils'
 
 interface GenerarFacturacionDialogProps {
   open: boolean
@@ -55,24 +41,40 @@ export function GenerarFacturacionDialog({
   const cicloInicial = ciclos[0] ?? String(new Date().getFullYear())
   const [ciclo, setCiclo] = useState(cicloInicial)
   const [mes, setMes] = useState(String(new Date().getMonth() + 1))
-  const [resumen, setResumen] = useState<ResumenGeneracionFacturacion | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [cargando, setCargando] = useState(false)
+  const [errorGeneracion, setError] = useState<string | null>(null)
   const [generando, setGenerando] = useState(false)
   const periodo = useMemo(() => `${ciclo}-${mes.padStart(2, '0')}-01`, [ciclo, mes])
+  // Resultado atado al período con que se pidió: si cambia, se considera "calculando".
+  const [calculo, setCalculo] = useState<{
+    periodo: string
+    resumen: ResumenGeneracionFacturacion | null
+    error: string | null
+  } | null>(null)
 
-  async function previsualizar() {
-    setCargando(true)
-    setError(null)
-    try {
-      setResumen(await previsualizarGeneracionFacturacion(periodo))
-    } catch (causa) {
-      setResumen(null)
-      setError(causa instanceof ApiError ? causa.detail : 'No se pudo calcular la generación.')
-    } finally {
-      setCargando(false)
+  useEffect(() => {
+    if (!open) return
+    let vigente = true
+    previsualizarGeneracionFacturacion(periodo)
+      .then((resultado) => {
+        if (vigente) setCalculo({ periodo, resumen: resultado, error: null })
+      })
+      .catch((causa: unknown) => {
+        if (!vigente) return
+        setCalculo({
+          periodo,
+          resumen: null,
+          error: causa instanceof ApiError ? causa.detail : 'No se pudo calcular la generación.',
+        })
+      })
+    return () => {
+      vigente = false
     }
-  }
+  }, [open, periodo])
+
+  const actual = calculo?.periodo === periodo ? calculo : null
+  const cargando = actual === null
+  const resumen = actual?.resumen ?? null
+  const error = errorGeneracion ?? actual?.error ?? null
 
   async function generar() {
     setGenerando(true)
@@ -91,14 +93,16 @@ export function GenerarFacturacionDialog({
     }
   }
 
+  const omitidos = resumen ? resumen.cargos_omitidos + resumen.cargos_bloqueados : 0
+  const sinCargos = resumen !== null && resumen.cargos_aptos === 0
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:!max-w-2xl">
+      <DialogContent className="sm:!max-w-lg">
         <DialogHeader>
           <DialogTitle>Generar ahora</DialogTitle>
           <DialogDescription>
-            Ejecución manual excepcional. Usala como respaldo: las reglas automáticas se procesan
-            según su propia agenda. Primero previsualizá el resultado.
+            Ejecución manual de respaldo. Las reglas automáticas se procesan solas según su agenda.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -108,7 +112,7 @@ export function GenerarFacturacionDialog({
               value={ciclo}
               onValueChange={(valor) => {
                 setCiclo(valor)
-                setResumen(null)
+                setError(null)
               }}
             >
               <SelectTrigger>
@@ -129,7 +133,7 @@ export function GenerarFacturacionDialog({
               value={mes}
               onValueChange={(valor) => {
                 setMes(valor)
-                setResumen(null)
+                setError(null)
               }}
             >
               <SelectTrigger>
@@ -151,41 +155,65 @@ export function GenerarFacturacionDialog({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        {cargando && !error && (
+          <div aria-hidden="true" className="flex flex-col gap-3">
+            <div>
+              <p className="text-texto-2">Monto estimado</p>
+              <Skeleton className="mt-1 h-8 w-40" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {['Reglas', 'Alumnos', 'Cargos aptos', 'Omitidos / bloqueados'].map((etiqueta) => (
+                <div key={etiqueta} className="rounded-card-sm bg-lienzo px-3 py-2">
+                  <p className="text-xs text-texto-2">{etiqueta}</p>
+                  <Skeleton className="mt-1 h-4 w-10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {resumen && (
-          <div className="grid gap-3 rounded-card-sm border border-borde p-4 sm:grid-cols-2">
-            <p className="text-sm text-texto-2">
-              Reglas aplicables <strong className="text-texto">{resumen.reglas_aplicables}</strong>
-            </p>
-            <p className="text-sm text-texto-2">
-              Alumnos alcanzados{' '}
-              <strong className="text-texto">{resumen.alumnos_alcanzados}</strong>
-            </p>
-            <p className="text-sm text-texto-2">
-              Cargos aptos <strong className="text-texto">{resumen.cargos_aptos}</strong>
-            </p>
-            <p className="text-sm text-texto-2">
-              Omitidos o bloqueados{' '}
-              <strong className="text-texto">
-                {resumen.cargos_omitidos + resumen.cargos_bloqueados}
-              </strong>
-            </p>
-            <p className="text-sm text-texto-2 sm:col-span-2">
-              Monto estimado{' '}
-              <strong className="text-texto">
-                {formatearMoneda(Number(resumen.monto_estimado))}
-              </strong>
-            </p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-texto-2">Monto estimado</p>
+              <p className="text-2xl font-semibold tabular-nums">
+                {formatearMoneda(resumen.monto_estimado)}
+              </p>
+            </div>
+            <dl className="grid grid-cols-2 gap-2">
+              <div className="rounded-card-sm bg-lienzo px-3 py-2">
+                <dt className="text-xs text-texto-2">Reglas</dt>
+                <dd className="font-semibold tabular-nums">{resumen.reglas_aplicables}</dd>
+              </div>
+              <div className="rounded-card-sm bg-lienzo px-3 py-2">
+                <dt className="text-xs text-texto-2">Alumnos</dt>
+                <dd className="font-semibold tabular-nums">{resumen.alumnos_alcanzados}</dd>
+              </div>
+              <div className="rounded-card-sm bg-lienzo px-3 py-2">
+                <dt className="text-xs text-texto-2">Cargos aptos</dt>
+                <dd className="font-semibold tabular-nums">{resumen.cargos_aptos}</dd>
+              </div>
+              <div className="rounded-card-sm bg-lienzo px-3 py-2">
+                <dt className="text-xs text-texto-2">Omitidos / bloqueados</dt>
+                <dd className="font-semibold tabular-nums">{omitidos}</dd>
+              </div>
+            </dl>
+            {sinCargos && (
+              <p className="text-sm text-texto-2">
+                No hay cargos pendientes para {MESES[Number(mes) - 1]} {ciclo}.
+              </p>
+            )}
           </div>
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={generando}>
             Cancelar
           </Button>
-          <Button variant="secondary" onClick={previsualizar} disabled={cargando || generando}>
-            {cargando ? 'Calculando…' : 'Previsualizar'}
-          </Button>
-          <Button onClick={generar} disabled={!resumen || resumen.cargos_aptos === 0 || generando}>
-            {generando ? 'Generando…' : 'Confirmar generación'}
+          <Button onClick={generar} disabled={cargando || sinCargos || !resumen || generando}>
+            {generando
+              ? 'Generando…'
+              : resumen && !sinCargos
+                ? `Generar ${resumen.cargos_aptos} ${resumen.cargos_aptos === 1 ? 'cargo' : 'cargos'}`
+                : 'Generar cargos'}
           </Button>
         </DialogFooter>
       </DialogContent>

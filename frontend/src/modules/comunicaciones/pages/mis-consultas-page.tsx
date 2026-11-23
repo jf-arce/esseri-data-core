@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import {
   ESTADOS,
@@ -44,8 +44,8 @@ function subtitulo(consulta: ConsultaResumen) {
   const { contexto } = consulta
   if (contexto.tipo === 'debito_cobranza') return contexto.concepto ?? 'Débito automático'
   if (contexto.tipo === 'solicitud_ausencia_periodo' && contexto.fecha_fin)
-    return `${capitalizar(contexto.motivo ?? 'Justificación')} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
-  return capitalizar(contexto.motivo ?? 'Justificación de inasistencia')
+    return `${etiquetaMotivo(contexto.motivo, 'Justificación')} · ${fechaCorta(contexto.fecha_inicio)} al ${fechaCorta(contexto.fecha_fin)}`
+  return etiquetaMotivo(contexto.motivo, 'Justificación de inasistencia')
 }
 
 function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
@@ -55,18 +55,18 @@ function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
     <li>
       <Link
         to={`/familia/conversaciones/${consulta.id}`}
-        className="flex items-start gap-3 rounded-[16px] border border-transparent p-3 transition-colors hover:border-[#EFE9F6] hover:bg-[#FAF7FD] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A2FA8] sm:p-4"
+        className="flex items-start gap-3 rounded-[16px] border border-transparent p-3 transition-colors hover:border-borde hover:bg-fila-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta sm:p-4"
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-[#F1E4FB] text-[#7A2FA8]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-violeta-suave text-violeta">
           <Icono aria-hidden="true" className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
             <span className="min-w-0">
-              <span className="block text-[16px] font-semibold text-[#2B2338]">
+              <span className="block text-[16px] font-semibold text-texto">
                 {TITULOS[consulta.contexto.tipo]}
               </span>
-              <span className="block truncate text-[13px] text-[#6B6478]">
+              <span className="block truncate text-[13px] text-texto-2">
                 {consulta.contexto.alumno_nombre} · {subtitulo(consulta)}
               </span>
             </span>
@@ -74,12 +74,12 @@ function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
               <Badge variant={consulta.estado === 'resuelta' ? 'exito' : 'advertencia'}>
                 {ESTADOS[consulta.estado]}
               </Badge>
-              <span className="flex flex-col items-end text-[12px] whitespace-nowrap text-[#6B6478]">
+              <span className="flex flex-col items-end text-[12px] whitespace-nowrap text-texto-2">
                 <time dateTime={consulta.updated_at}>{fechaCorta(consulta.updated_at)}</time>
                 {consulta.ultimo_mensaje && (
                   <time
                     dateTime={consulta.ultimo_mensaje.created_at}
-                    className="text-[11px] text-[#8C8599]"
+                    className="text-[11px] text-texto-3"
                   >
                     {horaCorta(consulta.ultimo_mensaje.created_at)}
                   </time>
@@ -88,7 +88,7 @@ function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
             </span>
           </span>
           {ultimo && (
-            <span className="mt-1 block truncate text-[13px] text-[#3A2E45]">
+            <span className="mt-1 block truncate text-[13px] text-texto">
               <span className="font-medium">
                 {ultimo.lado === 'familia' ? 'Vos' : 'Administración'}:
               </span>{' '}
@@ -96,7 +96,7 @@ function FilaConsulta({ consulta }: { consulta: ConsultaResumen }) {
             </span>
           )}
         </span>
-        <ChevronRightIcon aria-hidden="true" className="mt-3 size-4 shrink-0 text-[#6B6478]" />
+        <ChevronRightIcon aria-hidden="true" className="mt-3 size-4 shrink-0 text-texto-2" />
       </Link>
     </li>
   )
@@ -165,12 +165,12 @@ export function MisConsultasPage() {
         />
         <SubnavComunicaciones actual="consultas" consultas={resumen?.total ?? null} />
         <div className="mx-auto w-full max-w-[92vw] px-4 pb-10 sm:px-8">
-          <div className="overflow-hidden rounded-[24px] bg-white shadow-[0_14px_34px_rgba(24,16,40,0.10)]">
-            <div className="flex flex-col gap-3 border-b border-[#F0EAF6] p-4 sm:flex-row sm:items-center">
+          <div className="overflow-hidden rounded-[24px] bg-superficie shadow-card">
+            <div className="flex flex-col gap-3 border-b border-borde p-4 sm:flex-row sm:items-center">
               <div className="relative min-w-0 flex-1">
                 <SearchIcon
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-[#8C8599]"
+                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-texto-3"
                 />
                 <Input
                   aria-label="Buscar por alumno o trámite"
@@ -190,8 +190,8 @@ export function MisConsultasPage() {
                     className={cn(
                       'min-h-9 rounded-full px-3 text-[13px] font-semibold transition-colors',
                       filtro === opcion.clave
-                        ? 'bg-[#7A2FA8] text-white'
-                        : 'text-[#3A2E45] hover:bg-[#F5EFFA]',
+                        ? 'bg-violeta text-superficie'
+                        : 'text-texto hover:bg-fila-hover',
                     )}
                   >
                     {opcion.texto}
@@ -208,13 +208,13 @@ export function MisConsultasPage() {
                 </div>
               ) : error ? (
                 <div className="flex flex-col items-start gap-2 p-4">
-                  <p className="text-sm text-[#6B6478]">No se pudieron cargar tus consultas.</p>
+                  <p className="text-sm text-texto-2">No se pudieron cargar tus consultas.</p>
                   <Button variant="secondary" onClick={recargar}>
                     Reintentar
                   </Button>
                 </div>
               ) : (datos?.items.length ?? 0) === 0 ? (
-                <p className="p-4 text-sm text-[#6B6478]">
+                <p className="p-4 text-sm text-texto-2">
                   {buscar
                     ? 'No hay consultas que coincidan con la búsqueda.'
                     : 'Todavía no tenés consultas. Podés iniciar una desde un pago rechazado o una justificación.'}

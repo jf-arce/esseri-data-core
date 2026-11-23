@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { capitalizar } from '@/lib/texto'
+import { etiquetaMotivo } from '@/lib/motivos'
 import { cn } from '@/lib/utils'
 import {
   ESTADOS,
@@ -35,7 +35,7 @@ function detalleTramite(consulta: ConsultaResumen) {
   const { contexto } = consulta
   if (contexto.concepto) return contexto.concepto
   if (contexto.fecha_fin) return `${diaMes(contexto.fecha_inicio)} al ${diaMes(contexto.fecha_fin)}`
-  return capitalizar(contexto.motivo ?? 'Consulta')
+  return etiquetaMotivo(contexto.motivo, 'Consulta')
 }
 
 /** Conversaciones de una familia, acotadas a los alumnos que hoy tiene vinculados. */
@@ -117,8 +117,8 @@ export function ConversacionesFamilia({ alumnoIds }: { alumnoIds: string[] }) {
             className={cn(
               'min-h-9 rounded-full px-4 text-[13px] font-semibold transition-colors',
               filtro === opcion.valor
-                ? 'bg-[#7A2FA8] text-white'
-                : 'bg-fila-hover text-texto-2 hover:bg-[#F5EFFA]',
+                ? 'bg-violeta text-superficie'
+                : 'bg-fila-hover text-texto-2 hover:bg-fila-hover',
             )}
           >
             {opcion.texto} ({opcion.cantidad})
@@ -150,7 +150,7 @@ export function ConversacionesFamilia({ alumnoIds }: { alumnoIds: string[] }) {
                     to={`${URL_CONVERSACIONES}/${consulta.id}`}
                     className="flex items-center gap-3 rounded-[14px] border border-borde px-4 py-3 transition-colors hover:bg-fila-hover"
                   >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[11px] bg-[#F1E4FB] text-[#7A2FA8]">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[11px] bg-violeta-suave text-violeta">
                       <Icono aria-hidden="true" className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -178,7 +178,7 @@ export function ConversacionesFamilia({ alumnoIds }: { alumnoIds: string[] }) {
         )}
       </div>
 
-      <p className="mx-6 mb-4 rounded-[12px] bg-[#F7F0FC] px-4 py-3 text-[13px] text-texto-2">
+      <p className="mx-6 mb-4 rounded-[12px] bg-violeta-suave px-4 py-3 text-[13px] text-texto-2">
         Las conversaciones están vinculadas a un trámite (débito o justificación) y comparten el
         mismo historial, que podés consultar y continuar desde acá.
       </p>
