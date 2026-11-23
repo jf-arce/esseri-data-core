@@ -230,7 +230,9 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
 
   return (
     <section className="flex w-full flex-col gap-4 xl:h-[calc(100svh-7rem)]">
-      <PageHeader titulo="Conversaciones" descripcion="Consultas vinculadas a trámites." />
+      <div className="xl:hidden">
+        <PageHeader titulo="Conversaciones" descripcion="Consultas vinculadas a trámites." />
+      </div>
       <div className="grid min-h-[calc(100svh-12rem)] gap-5 xl:min-h-0 xl:flex-1 xl:grid-rows-1 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
         <div
           className={cn(
@@ -238,6 +240,10 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
             seleccionada ? 'hidden xl:flex' : 'flex',
           )}
         >
+          <div className="hidden xl:block">
+            <h1 className="text-lg font-semibold text-texto">Conversaciones</h1>
+            <p className="text-xs text-texto-2">Consultas vinculadas a trámites.</p>
+          </div>
           <Tabs value={pestana} onValueChange={(valor) => setPestana(valor as Pestana)}>
             <TabsList aria-label="Estado de las conversaciones">
               {PESTANAS.map(({ valor, texto }) => (
