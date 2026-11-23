@@ -229,14 +229,25 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
   }, [items, buscar, orden])
 
   return (
-    <section className="flex w-full flex-col gap-4 xl:h-[calc(100svh-7rem)]">
-      <div className="xl:hidden">
+    <section
+      className={cn(
+        'flex w-full flex-col gap-4 xl:h-[calc(100svh-7rem)]',
+        // En celular y tablet el detalle ocupa la pantalla (como un chat) y solo scrollean los mensajes.
+        seleccionada && 'h-[calc(100svh-6rem)]',
+      )}
+    >
+      <div className={cn('xl:hidden', seleccionada && 'hidden')}>
         <PageHeader titulo="Conversaciones" descripcion="Consultas vinculadas a trámites." />
       </div>
-      <div className="grid min-h-[calc(100svh-12rem)] gap-5 xl:min-h-0 xl:flex-1 xl:grid-rows-1 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          'grid gap-5 xl:min-h-0 xl:flex-1 xl:grid-rows-1 xl:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]',
+          seleccionada ? 'min-h-0 flex-1 grid-rows-1' : 'min-h-[calc(100svh-12rem)]',
+        )}
+      >
         <div
           className={cn(
-            'min-w-0 flex-col gap-3 xl:min-h-0 rounded-panel bg-superficie p-4 shadow-card',
+            'min-w-0 flex-col gap-3 rounded-panel bg-superficie p-3 shadow-card sm:p-4 xl:min-h-0',
             seleccionada ? 'hidden xl:flex' : 'flex',
           )}
         >
@@ -313,7 +324,9 @@ function Panel({ seleccionada }: { seleccionada?: string }) {
             )}
           </div>
         </div>
-        <div className={cn('min-w-0 xl:min-h-0', !seleccionada && 'hidden xl:block')}>
+        <div
+          className={cn('min-w-0 xl:min-h-0', seleccionada ? 'flex flex-col' : 'hidden xl:block')}
+        >
           {seleccionada ? (
             <ConversacionContextualPage
               key={seleccionada}

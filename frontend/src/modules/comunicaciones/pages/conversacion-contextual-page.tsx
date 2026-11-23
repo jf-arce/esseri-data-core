@@ -1,12 +1,14 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
+  ArrowLeftIcon,
   BanknoteIcon,
   CalendarDaysIcon,
   DownloadIcon,
   FileTextIcon,
   MessageCircleIcon,
   PaperclipIcon,
+  SendIcon,
   XIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -175,21 +177,9 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
   ]
 }
 
-function ContextoCard({
-  contexto,
-  mostrarEstado,
-  compacto = false,
-  acciones,
-}: {
-  contexto: Contexto
-  mostrarEstado: boolean
-  compacto?: boolean
-  acciones?: React.ReactNode
-}) {
+function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrarEstado: boolean }) {
   const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
-  const subtitulo = `Alumno: ${contexto.alumno_nombre}${
-    contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''
-  }`
+  const subtitulo = subtituloAlumno(contexto)
   const tituloTramite = contexto.concepto ?? TITULOS[contexto.tipo]
   const todos = datosDelContexto(contexto)
   const motivo = todos.find((dato) => dato.etiqueta === 'Motivo')
@@ -197,35 +187,16 @@ function ContextoCard({
   return (
     <section
       aria-label="Datos del trámite"
-      className={cn(
-        'flex shrink-0 flex-col rounded-panel bg-superficie shadow-card',
-        compacto ? 'gap-2 p-3' : 'gap-4 p-5',
-      )}
+      className="flex shrink-0 flex-col gap-4 rounded-panel bg-superficie p-5 shadow-card"
     >
-      <div className={cn('flex flex-wrap items-center gap-x-6', compacto ? 'gap-y-2' : 'gap-y-4')}>
-        <div
-          className={cn(
-            'flex min-w-0 items-center gap-3',
-            compacto ? 'flex-1' : 'xl:w-[19rem] xl:shrink-0',
-          )}
-        >
-          {!compacto && (
-            <span
-              className={cn(
-                'flex shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta',
-                'size-12',
-              )}
-            >
-              <FileTextIcon aria-hidden="true" className="size-6" />
-            </span>
-          )}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+        <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta">
+            <FileTextIcon aria-hidden="true" className="size-6" />
+          </span>
           <div className="min-w-0">
             <p className="text-base font-semibold text-texto">{tituloTramite}</p>
-            <p className="truncate text-xs text-texto-2">
-              {compacto && motivo
-                ? `${subtitulo} · ${motivo.etiqueta}: ${motivo.valor}`
-                : subtitulo}
-            </p>
+            <p className="truncate text-xs text-texto-2">{subtitulo}</p>
           </div>
         </div>
         {datos.map((dato) => {
@@ -235,12 +206,12 @@ function ContextoCard({
               key={dato.etiqueta}
               className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
-              {Icono && !compacto && (
+              {Icono && (
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
                   <Icono aria-hidden="true" className="size-4.5" />
                 </span>
               )}
-              <div className={cn('min-w-0', !Icono && 'lg:pl-0')}>
+              <div className="min-w-0">
                 <p className="text-xs font-medium tracking-[.02em] text-texto-2">{dato.etiqueta}</p>
                 <p className="text-sm font-semibold text-texto">{dato.valor}</p>
               </div>
@@ -252,15 +223,66 @@ function ContextoCard({
             <Badge variant={estado.variante}>{estado.texto}</Badge>
           </div>
         )}
-        {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
       </div>
-      {motivo && !compacto && (
-        <div className={cn('border-t border-borde', compacto ? 'pt-2' : 'pt-3')}>
+      {motivo && (
+        <div className="border-t border-borde pt-3">
           <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
           <p className="text-sm text-texto">{motivo.valor}</p>
         </div>
       )}
     </section>
+  )
+}
+
+function subtituloAlumno(contexto: Contexto) {
+  return `Alumno: ${contexto.alumno_nombre}${contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''}`
+}
+
+// Encabezado del panel de conversaciones: va dentro de la misma tarjeta del chat.
+function EncabezadoPanel({
+  contexto,
+  mostrarEstado,
+  estadoHilo,
+  accion,
+}: {
+  contexto: Contexto
+  mostrarEstado: boolean
+  estadoHilo: ReactNode
+  accion: ReactNode
+}) {
+  const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
+  return (
+    <header
+      aria-label="Datos del trámite"
+      className="flex shrink-0 flex-col gap-1.5 border-b border-borde px-3 py-3 sm:px-5"
+    >
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <Button variant="ghost" size="icon-sm" asChild className="-ml-2 shrink-0 xl:hidden">
+          <Link to={rutaConversaciones(false)} aria-label="Volver a conversaciones">
+            <ArrowLeftIcon aria-hidden="true" />
+          </Link>
+        </Button>
+        <div className="min-w-40 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 className="text-base font-semibold text-texto">
+              {contexto.concepto ?? TITULOS[contexto.tipo]}
+            </h2>
+            {estado && mostrarEstado && <Badge variant={estado.variante}>{estado.texto}</Badge>}
+            {estadoHilo}
+          </div>
+          <p className="truncate text-xs text-texto-2">{subtituloAlumno(contexto)}</p>
+        </div>
+        {accion && <div className="ml-auto shrink-0">{accion}</div>}
+      </div>
+      <dl className="flex flex-wrap gap-x-5 gap-y-0.5 text-xs">
+        {datosDelContexto(contexto).map((dato) => (
+          <div key={dato.etiqueta} className="flex min-w-0 gap-1">
+            <dt className="text-texto-2">{dato.etiqueta}:</dt>
+            <dd className="font-medium text-texto">{dato.valor}</dd>
+          </div>
+        ))}
+      </dl>
+    </header>
   )
 }
 
@@ -519,7 +541,6 @@ function Detalle({
   const gestion = hilo?.puede_gestionar ? (
     <Button
       variant="secondary"
-      className="rounded-full"
       disabled={ocupado}
       onClick={() =>
         void ejecutar(async (signal) => {
@@ -548,21 +569,12 @@ function Detalle({
 
   const conversacion = (
     <>
-      {contexto && (
+      {contexto && !enPanel && (
+        // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
+        // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
         <ContextoCard
           contexto={contexto}
-          // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
-          // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
-          compacto={enPanel}
-          acciones={
-            enPanel ? (
-              <>
-                {estadoHilo}
-                {gestion}
-              </>
-            ) : undefined
-          }
         />
       )}
       <Card
@@ -571,7 +583,17 @@ function Detalle({
           enPanel && 'min-h-0 flex-1',
         )}
       >
-        <CardContent className={cn('flex flex-col gap-4 px-5 py-4', enPanel && 'min-h-0 flex-1')}>
+        {contexto && enPanel && (
+          <EncabezadoPanel
+            contexto={contexto}
+            mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
+            estadoHilo={estadoHilo}
+            accion={gestion}
+          />
+        )}
+        <CardContent
+          className={cn('flex flex-col gap-4 px-3 py-4 sm:px-5', enPanel && 'min-h-0 flex-1')}
+        >
           {cargando && <Skeleton className="h-24 w-full" />}
           {error && (
             <Alert role="alert">
@@ -592,7 +614,7 @@ function Detalle({
           {hilo && historial.siguiente && (
             <Button
               variant="secondary"
-              className="self-start rounded-full"
+              className="self-start"
               disabled={ocupado}
               onClick={() =>
                 void ejecutar(async (signal) => {
@@ -651,7 +673,7 @@ function Detalle({
                           className="mt-4 flex justify-center first:mt-0"
                           aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
                         >
-                          <span className="rounded-full bg-fila-hover px-3 py-1 text-xs font-medium text-texto-2">
+                          <span className="rounded-md bg-fila-hover px-3 py-1 text-xs font-medium text-texto-2">
                             {fechaLarga(mensaje.created_at)}
                           </span>
                         </li>
@@ -710,7 +732,7 @@ function Detalle({
           )}
         </CardContent>
         {puedeEnviar && (
-          <CardFooter className="shrink-0 border-t border-borde px-5 py-3">
+          <CardFooter className="shrink-0 border-t border-borde px-3 py-3 sm:px-5">
             <form onSubmit={enviar} className="flex w-full flex-col gap-2">
               <label htmlFor="mensaje-contextual" className="sr-only">
                 Mensaje
@@ -724,7 +746,7 @@ function Detalle({
                 rows={2}
                 className={cn(
                   'resize-none rounded-card-sm border-borde bg-superficie text-sm',
-                  enPanel ? 'min-h-12' : 'min-h-16',
+                  'min-h-16',
                 )}
                 onChange={(evento) => {
                   clave.current = null
@@ -736,13 +758,13 @@ function Detalle({
                   {archivos.map((archivo) => (
                     <li
                       key={`${archivo.name}-${archivo.lastModified}`}
-                      className="flex items-center gap-2 rounded-full bg-violeta-suave/60 py-1 pr-1 pl-3 text-xs text-texto"
+                      className="flex items-center gap-2 rounded-lg bg-violeta-suave/60 py-1 pr-1 pl-3 text-xs text-texto"
                     >
                       <span className="max-w-52 truncate">{archivo.name}</span>
                       <button
                         type="button"
                         aria-label={`Quitar ${archivo.name}`}
-                        className="flex size-6 items-center justify-center rounded-full text-texto-2 hover:bg-superficie"
+                        className="flex size-6 items-center justify-center rounded-md text-texto-2 hover:bg-superficie"
                         onClick={() => {
                           clave.current = null
                           setArchivos((actual) => actual.filter((item) => item !== archivo))
@@ -799,14 +821,22 @@ function Detalle({
                     </>
                   )}
                 </div>
-                <Button
-                  type="submit"
-                  disabled={ocupado || !texto.trim()}
-                  className={familia ? PORTAL_PRIMARY_BUTTON_CLASS : undefined}
-                >
-                  {familia ? 'Enviar mensaje' : 'Enviar respuesta'}
-                </Button>
+                {!enPanel && (
+                  <Button
+                    type="submit"
+                    disabled={ocupado || !texto.trim()}
+                    className={familia ? PORTAL_PRIMARY_BUTTON_CLASS : undefined}
+                  >
+                    {familia ? 'Enviar mensaje' : 'Enviar respuesta'}
+                  </Button>
+                )}
               </div>
+              {enPanel && (
+                <Button type="submit" className="w-full" disabled={ocupado || !texto.trim()}>
+                  <SendIcon aria-hidden="true" />
+                  Enviar respuesta
+                </Button>
+              )}
             </form>
           </CardFooter>
         )}
@@ -835,32 +865,24 @@ function Detalle({
     <section
       className={cn(
         'flex w-full flex-col',
-        enPanel ? 'gap-3 xl:h-full xl:min-h-0' : 'mx-auto max-w-[1100px] gap-4',
+        enPanel ? 'h-full min-h-0 gap-3' : 'mx-auto max-w-[1100px] gap-4',
       )}
     >
-      {enPanel && (
-        <Link
-          to={rutaConversaciones(false)}
-          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-violeta xl:hidden"
-        >
-          ← Volver a conversaciones
-        </Link>
-      )}
-      <div className={cn('flex flex-wrap items-start justify-between gap-2', enPanel && 'hidden')}>
-        <div>
-          <h1 className={cn('font-semibold', enPanel ? 'text-lg' : 'text-2xl')}>{titulo}</h1>
-          <p className={cn('text-texto-2', enPanel && 'text-sm')}>{descripcion}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {estadoHilo}
-          {gestion}
-          {!enPanel && (
+      {!enPanel && (
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold">{titulo}</h1>
+            <p className="text-texto-2">{descripcion}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {estadoHilo}
+            {gestion}
             <Button variant="secondary" asChild>
               <Link to={destino}>Volver al trámite</Link>
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
       {conversacion}
     </section>
   )
