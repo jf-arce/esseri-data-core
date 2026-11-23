@@ -1,8 +1,15 @@
 import { useMemo, useState } from 'react'
-import { ArrowRightIcon, DownloadIcon, FileTextIcon, RotateCcwIcon } from 'lucide-react'
+import {
+  ArrowRightIcon,
+  DownloadIcon,
+  FileTextIcon,
+  LandmarkIcon,
+  RotateCcwIcon,
+} from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { FilterBar, FilterSearch } from '@/components/filter-bar'
 import { FilterDropdown } from '@/components/filter-dropdown'
@@ -148,12 +155,11 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
     setErrorAccion('')
     try {
       const archivo = await generarRespuestaDebitos(loteCreado.id, {
-        // Un lote chico de demo deja un rechazo; los lotes reales conservan hasta tres.
+        // Lotes de hasta 3 facturas rechazan 1; los más grandes, hasta 3.
         rechazosCantidad:
           loteCreado.cantidad_facturas <= 3 ? 1 : Math.min(3, loteCreado.cantidad_facturas),
       })
       descargarArchivoDebitos(archivo)
-      onIrAImportar()
     } catch (reason) {
       setErrorAccion(reason instanceof Error ? reason.message : 'No se pudo preparar la respuesta.')
     } finally {
@@ -231,14 +237,27 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
                 {etiquetaArchivoSolicitud(archivo.nombre)}
               </Button>
             ))}
-            <Button variant="ghost" disabled={exportando} onClick={prepararRespuesta}>
-              <DownloadIcon data-icon="inline-start" />
-              Preparar respuesta de ejemplo
-            </Button>
             <Button onClick={onIrAImportar}>
               Continuar con importar
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ml-auto text-texto-3"
+                    aria-label="Descargar respuesta del banco"
+                    disabled={exportando}
+                    onClick={prepararRespuesta}
+                  >
+                    <LandmarkIcon />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>Descargar respuesta del banco</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </section>
       )}

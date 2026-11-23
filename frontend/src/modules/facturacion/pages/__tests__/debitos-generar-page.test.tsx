@@ -319,7 +319,7 @@ describe('DebitosGenerarPage', () => {
     expect(confirmarRespuestaDebitos).not.toHaveBeenCalled()
   })
 
-  it('genera una respuesta de ejemplo y salta a importar sin renderizar cientos de filas', async () => {
+  it('descarga la respuesta del banco sin salir de la pantalla ni renderizar cientos de filas', async () => {
     const user = userEvent.setup()
     const onIrAImportar = vi.fn()
     render(
@@ -334,7 +334,7 @@ describe('DebitosGenerarPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Exportar 436 solicitudes' }))
     await screen.findByText('Lote LD-2026-10-002 exportado')
 
-    await user.click(screen.getByRole('button', { name: 'Preparar respuesta de ejemplo' }))
+    await user.click(screen.getByRole('button', { name: 'Descargar respuesta del banco' }))
 
     await waitFor(() =>
       expect(vi.mocked(generarRespuestaDebitos)).toHaveBeenCalledWith('lote-1', {
@@ -345,8 +345,11 @@ describe('DebitosGenerarPage', () => {
       nombre: 'respuesta.txt',
       contenido: 'respuesta',
     })
-    expect(onIrAImportar).toHaveBeenCalled()
+    expect(onIrAImportar).not.toHaveBeenCalled()
     expect(screen.queryByText('Débitos rechazados')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Continuar con importar' }))
+    expect(onIrAImportar).toHaveBeenCalledTimes(1)
   })
 
   it('deja un solo rechazo cuando el lote de demo tiene tres facturas', async () => {
@@ -359,7 +362,7 @@ describe('DebitosGenerarPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Exportar 437 solicitudes' }))
     await screen.findByText('Lote LD-2026-10-002 exportado')
 
-    await user.click(screen.getByRole('button', { name: 'Preparar respuesta de ejemplo' }))
+    await user.click(screen.getByRole('button', { name: 'Descargar respuesta del banco' }))
 
     await waitFor(() =>
       expect(vi.mocked(generarRespuestaDebitos)).toHaveBeenCalledWith('lote-1', {
