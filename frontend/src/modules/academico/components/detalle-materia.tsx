@@ -13,7 +13,13 @@ type FranjaDetalle = MateriaCurso['horarios'][number] & { materia: MateriaCurso 
 
 function fechaDelDia(fecha: Date | undefined): string | null {
   if (!fecha) return null
-  const partes = FECHA.format(fecha).replace(',', '')
+  // `fecha` es un día del calendario local y puede traer la hora actual: se toma solo el año/mes/día
+  // local y se formatea como UTC. Si no, en Argentina después de las 21:00 la hora local ya es el
+  // día siguiente en UTC y el detalle mostraba la fecha corrida.
+  const diaDelCalendario = new Date(
+    Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()),
+  )
+  const partes = FECHA.format(diaDelCalendario).replace(',', '')
   return partes.charAt(0).toUpperCase() + partes.slice(1)
 }
 
