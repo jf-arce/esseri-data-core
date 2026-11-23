@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
+from src.academico.models import NivelEducativo
 from src.facturacion.calendario_facturacion import (
     fecha_operativa_argentina,
     fecha_programada,
@@ -27,12 +28,17 @@ from src.facturacion.models import (
     ResponsableEconomico,
 )
 from src.facturacion.reglas_facturacion_service import (
+    actualizar_estado_regla_facturacion,
     crear_regla_facturacion,
     generar_facturacion,
     listar_reglas_facturacion_read,
     planificar_generacion_facturacion,
 )
-from src.facturacion.schemas import EjecucionFacturacionRead, ReglaFacturacionCreate
+from src.facturacion.schemas import (
+    EjecucionFacturacionRead,
+    ReglaFacturacionCreate,
+    ReglaFacturacionEstadoUpdate,
+)
 from src.facturacion.service import eliminar_concepto_cobro
 from tests.inscripciones.factories import crear_escenario, crear_inscripcion_previa
 
@@ -116,6 +122,34 @@ def test_no_permite_reglas_activas_superpuestas_para_mismo_concepto(db_session):
         crear_regla_facturacion(
             db_session,
             _regla(cuota.id, nombre="Cuota alternativa", vigencia_desde=date(2027, 6, 1)),
+        )
+
+
+def test_reglas_de_distintos_niveles_no_se_superponen_y_el_mismo_nivel_si(db_session):
+    escenario = crear_escenario(db_session)
+    cuota = ConceptoCobro(nombre="Cuota educativa", activo=True)
+    otro_nivel = NivelEducativo(nombre="Secundario")
+    db_session.add_all([cuota, otro_nivel])
+    db_session.commit()
+    por_nivel = {"criterio_aplicacion": "nivel"}
+    crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, nivel_educativo_id=escenario["nivel_id"], **por_nivel),
+    )
+
+    pausada = crear_regla_facturacion(
+        db_session,
+        _regla(cuota.id, nivel_educativo_id=otro_nivel.id, estado="pausada", **por_nivel),
+    )
+    reactivada = actualizar_estado_regla_facturacion(
+        db_session, pausada, ReglaFacturacionEstadoUpdate(estado="activa")
+    )
+    assert reactivada.estado == "activa"
+
+    with pytest.raises(ReglaFacturacionIncompatible):
+        crear_regla_facturacion(
+            db_session,
+            _regla(cuota.id, nivel_educativo_id=escenario["nivel_id"], **por_nivel),
         )
 
 
