@@ -61,6 +61,17 @@ ENVIRONMENT=development ESSERI_DEMO_SEED_ENABLED=true ESSERI_DEMO_SEED_PERMITIR_
 
 Reemplazar `railway` por el nombre real de la base si es otro (`SELECT current_database()`). Es solo para una base de demo: marca la base como descartable y carga cuentas con una contraseña conocida. No se hace sobre una base con datos reales.
 
+#### Repetir el ensayo en Railway
+
+`presentacion_copia_remota.py` hace lo mismo que `presentacion-copia.sh` pero desde la consola del backend (no hay `psql` ahí). La copia es otra base del mismo servidor, `<base>_base`, y ocupa el mismo espacio que la original.
+
+```bash
+python /database/seeds/presentacion_copia_remota.py guardar     # con la base lista, antes de ensayar
+python /database/seeds/presentacion_copia_remota.py restaurar   # vuelve a ese estado
+```
+
+`restaurar` borra la base actual: lo que se cargó después de `guardar` se pierde (por ejemplo, usuarios creados a mano). Después hay que reiniciar el backend, porque no descarta solo las conexiones viejas. Requiere que el usuario de Postgres pueda crear y borrar bases (el de Railway lo es).
+
 ### Repetir el ensayo sin recargar los seeds
 
 `presentacion-copia.sh` guarda una copia de la base ya cargada y la restaura cuando hace falta. Usa la conexión de `backend/.env` como administrador de Postgres.
