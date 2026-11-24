@@ -2,7 +2,7 @@
 
 Seed `09_seed_presentacion.py`: una escuela completa con datos simulados verosímiles (sin etiquetas "demo" a la vista) para la demo del proyecto. Es independiente de los seeds `04` a `08`; no se combinan.
 
-Carga 420 alumnos (416 activos), 360 responsables en 340 familias, 40 docentes, 21 divisiones, 25 materias, 600 franjas horarias, asistencias, admisiones, 1.682 facturas y 1.260 pagos, 18 comunicaciones, 24 conversaciones históricas, 15 proveedores con compras, sugerencias de IA, 2 reglas de workflow con 12 ejecuciones y 6 tareas. Fecha de referencia: **18/11/2026**.
+Carga 420 alumnos (416 activos), 360 responsables en 340 familias, 40 docentes, 21 divisiones, 25 materias, 600 franjas horarias, 33.054 asistencias, 951 inscripciones, admisiones, 6.840 facturas y 5.175 pagos, 18 comunicaciones, 24 conversaciones históricas, 15 proveedores con compras, sugerencias de IA, 2 reglas de workflow con 12 ejecuciones y 6 tareas. Fecha de referencia: **18/11/2026**.
 
 La regla del flujo en vivo **no se carga**: se arma en el canvas durante la demo.
 
@@ -14,6 +14,12 @@ Los 15 años van de sala de 3 a 6° de Secundaria (Inicial 3 a 5, Primario 1° a
 - **Horarios:** módulos de 60 minutos que empiezan en punto o y media, para que encajen con la grilla de 30 minutos del calendario. Cada nivel tiene su recreo (Inicial 3 por día desde 8:30, Primario 5 desde 8:00, Secundario 5 desde 7:30) y cada división llena sus 15 o 25 módulos semanales.
 - **Docentes:** el plantel se dimensiona por carga (hasta 20 módulos semanales) y no tiene superposiciones. `alma.escobar@esseri.test` dicta Lengua y Literatura en 1°A, 1°B y 2°A de Secundario.
 - Se calcula en `structure()`, de forma determinista: la misma base sale igual en cada carga.
+
+## Cobertura del historial
+
+- Inscripciones: altas y reinscripciones distribuidas durante el año, con a lo sumo una inscripción por alumno y ciclo.
+- Asistencia: una muestra por semana lectiva y más días cerca de la fecha de referencia. El historial respeta la fecha de inscripción y el corte de las bajas.
+- Facturación: historial mensual del ciclo anterior y de los meses lectivos transcurridos del actual, con facturas pagadas, parciales y vencidas. El mes de referencia conserva únicamente las 30 facturas del ensayo de débitos.
 
 ## Cargar la base
 
@@ -37,6 +43,7 @@ alembic upgrade head
 python ../database/seeds/01_seed_grupo_a.py
 python ../database/seeds/02_seed_grupo_c.py
 python ../database/seeds/03_seed_grupo_b.py
+python ../database/seeds/06_seed_aviso_revocacion.py
 python ../database/seeds/09_seed_presentacion.py
 ```
 
@@ -44,7 +51,7 @@ Volver a correr el `09` sobre la misma base no hace nada. Para repetir el ensayo
 
 ### Cargarla en Railway (solo para la presentación)
 
-Alternativa a copiar la base con `pg_dump`: correr el seed por SSH dentro del backend, que ya aplicó las migraciones y los seeds `01`, `02` y `03` al arrancar. Con `ESSERI_DEMO_SEED_PERMITIR_REMOTO=true` el seed acepta un host, base y rol distintos de los locales. Siguen exigiéndose `ENVIRONMENT` en `development`, `ESSERI_DEMO_SEED_ENABLED=true` y la marca en la base.
+Alternativa a copiar la base con `pg_dump`: correr el seed por SSH dentro del backend, que ya aplicó las migraciones y los seeds `01`, `02`, `03` y `06` al arrancar. La regla de revocación de `06` se conserva; cualquier otra regla o historial previo de eventos, ejecuciones o notificaciones bloquea la carga. Con `ESSERI_DEMO_SEED_PERMITIR_REMOTO=true` el seed acepta un host, base y rol distintos de los locales. Siguen exigiéndose `ENVIRONMENT` en `development`, `ESSERI_DEMO_SEED_ENABLED=true` y la marca en la base.
 
 Desde **Copy SSH Command** del servicio `backend`, ya dentro del contenedor (las variables van solo en esa sesión, no se cambian en el servicio):
 
@@ -119,13 +126,14 @@ Para ver el payload del email sin enviarlo, usar `presentacion_mail.py` (acepta 
 
 ## Reglas de facturación
 
-Las facturas cargadas salen de **9 reglas por nivel educativo**, así Facturación → Reglas de facturación no aparece vacía y cada factura explica de dónde viene su importe:
+Las facturas cargadas salen de **12 reglas repartidas entre los tres niveles educativos**, así Facturación → Reglas de facturación no aparece vacía y cada factura explica de dónde viene su importe:
 
 | Regla | Ciclo | Estado | Importe |
 |---|---|---|---|
 | Cuota mensual · Inicial / Primario / Secundario | 2026 | activa | $110.000 / $125.000 / $145.000 |
 | Matrícula · Inicial / Primario / Secundario | 2026 | activa | $150.000 / $170.000 / $190.000 |
 | Cuota mensual · Inicial / Primario / Secundario | 2025 | finalizada | 15 % menos |
+| Matrícula · Inicial / Primario / Secundario | 2025 | finalizada | 15 % menos |
 
 Quedan en modo **manual** a propósito: el seed carga solo 30 cuotas del mes actual (las de la demo de débitos), así que una regla automática intentaría generar el resto y mezclaría esas facturas con las del lote. Cada período tiene su ejecución registrada, y cada factura queda vinculada a su regla.
 

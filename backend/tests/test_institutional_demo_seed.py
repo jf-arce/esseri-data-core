@@ -26,6 +26,185 @@ def seed_module(monkeypatch):
     return import_module("08_seed_institutional_demo")
 
 
+@pytest.fixture
+def presentation_school(monkeypatch, db_session):
+    from src.facturacion.models import ConceptoCobro, MetodoPago
+
+    monkeypatch.syspath_prepend(str(SEEDS))
+    module = import_module("09_seed_presentacion")
+    db_session.add_all(
+        NivelEducativo(nombre=name)
+        for name in ("Nivel Inicial", "Nivel Primario", "Nivel Secundario")
+    )
+    db_session.add_all(Rol(nombre=name) for name in ROLES)
+    db_session.add_all(ConceptoCobro(nombre=name) for name in ("Cuota educativa", "Matrícula"))
+    db_session.add(MetodoPago(nombre="tarjeta_debito", activo=True, requiere_comprobante=False))
+    db_session.flush()
+    reference = date(2026, 11, 18)
+    return module, module.seed_school(db_session, reference, "local-only-demo-password"), reference
+
+
+def test_presentation_registers_students_across_months_without_duplicates(presentation_school):
+    _, school, _ = presentation_school
+    rows = list(school.registrations.values())
+    assert len({(row.alumno_id, row.ciclo_lectivo) for row in rows}) == len(rows)
+    assert {1, 2, 3, 4, 5} <= {
+        row.fecha_inscripcion.month for row in rows if row.ciclo_lectivo == "2026"
+    }
+    assert {row.estado for row in rows} == {"activa", "finalizada", "baja"}
+
+
+def test_presentation_records_attendance_each_week_within_enrollment(
+    presentation_school, db_session
+):
+    _, _, reference = presentation_school
+    rows = db_session.execute(
+        select(Asistencia, Inscripcion).join(
+            Inscripcion, Asistencia.inscripcion_id == Inscripcion.id
+        )
+    ).all()
+    covered = {}
+    for attendance, enrollment in rows:
+        assert enrollment.fecha_inscripcion <= attendance.fecha <= reference
+        assert attendance.fecha.weekday() < 5
+        if enrollment.estado == "baja":
+            assert attendance.fecha <= date(2026, 7, 31)
+        if enrollment.ciclo_lectivo == "2026":
+            covered.setdefault(enrollment.division_id, set()).add(
+                attendance.fecha.isocalendar().week
+            )
+    assert len(covered) == 21
+    assert all(set(range(10, 48)) <= weeks for weeks in covered.values())
+    assert {"presente", "tardanza", "ausente_justificado", "ausente_injustificado"} <= {
+        attendance.tipo for attendance, _ in rows
+    }
+
+
+def test_presentation_bills_past_school_months_without_changing_live_batch(
+    presentation_school, db_session
+):
+    from collections import defaultdict
+    from decimal import Decimal
+
+    module, school, reference = presentation_school
+    module.seed_finance(db_session, school, reference)
+    observed = defaultdict(set)
+    for bill in db_session.scalars(select(Factura)):
+        if bill.fecha_emision < reference.replace(day=1):
+            paid = sum((payment.monto for payment in bill.pagos), Decimal(0))
+            classification = (
+                "partial" if 0 < paid < bill.monto_total else "paid" if paid else "overdue"
+            )
+            observed[bill.fecha_emision].add(classification)
+    expected = {date(2025, month, 1) for month in range(3, 12)} | {
+        date(2026, month, 1) for month in range(3, 11)
+    }
+    assert observed == dict.fromkeys(expected, {"partial", "paid", "overdue"})
+    live = db_session.execute(select(Factura, FacturaCobranzaDemo).join(FacturaCobranzaDemo)).all()
+    assert {metadata.numero for _, metadata in live} == {f"F-202611-{i:04}" for i in range(1, 31)}
+    assert all(bill.estado == "pendiente" and not bill.pagos for bill, _ in live)
+    assert (
+        db_session.query(Movimiento).filter_by(tipo="debe").count()
+        == db_session.query(Factura).count()
+    )
+    assert (
+        db_session.query(Movimiento).filter_by(tipo="haber").count()
+        == db_session.query(Pago).count()
+    )
+
+
+@pytest.mark.parametrize(
+    "existing_state", ["canonical", "other_name", "other_trigger", "duplicate", "pending_event"]
+)
+def test_presentation_only_accepts_the_startup_revocation_rule(
+    presentation_school, db_session, monkeypatch, existing_state
+):
+    import uuid
+
+    from src.ia_sugerencias import service as suggestions
+    from src.models import EventLog
+    from src.workflows.eventos_service import emit_event
+    from src.workflows.models import (
+        CampoEvento,
+        Notificacion,
+        Tarea,
+        TipoEvento,
+        WorkflowExecution,
+        WorkflowRule,
+    )
+
+    module, school, reference = presentation_school
+    startup_seed = import_module("06_seed_aviso_revocacion")
+    event = TipoEvento(nombre=startup_seed.EVENTO, descripcion="Solicitud revocada")
+    overdue = TipoEvento(nombre="factura.vencida", descripcion="Factura vencida")
+    db_session.add_all([event, overdue])
+    db_session.flush()
+    db_session.add_all(
+        CampoEvento(tipo_evento_id=event.id, nombre_interno=name, etiqueta=name, tipo_dato=kind)
+        for name, kind in (
+            ("alumno_nombre", "texto"),
+            ("motivo", "texto"),
+            ("fecha_inicio", "fecha"),
+            ("fecha_fin", "fecha"),
+        )
+    )
+    db_session.add_all(
+        CampoEvento(tipo_evento_id=overdue.id, nombre_interno=name, etiqueta=name, tipo_dato=kind)
+        for name, kind in (
+            ("dias_vencido", "numero"),
+            ("dias_vencido_texto", "texto"),
+            ("monto_deuda", "numero"),
+            ("nombre_familia", "texto"),
+            ("apellido_familia", "texto"),
+            ("alumno_nombre", "texto"),
+        )
+    )
+    db_session.flush()
+    startup_seed.seed(db_session)
+    startup_rule = db_session.scalar(select(WorkflowRule))
+    monkeypatch.setattr(suggestions, "detectar_patrones", lambda *args, **kwargs: None)
+
+    if existing_state == "canonical":
+        module.seed_finance(db_session, school, reference)
+        module.seed_offline_workflow(db_session, school, reference)
+        executions = db_session.scalars(select(WorkflowExecution)).all()
+        assert len(executions) == 12
+        assert all(execution.workflow_rule_id != startup_rule.id for execution in executions)
+        assert db_session.query(EventLog).count() == 6
+        assert db_session.query(Tarea).count() == 6
+    else:
+        if existing_state == "pending_event":
+            emit_event(
+                db_session,
+                tipo=startup_seed.EVENTO,
+                entidad="solicitud_ausencia_periodo",
+                entidad_id=uuid.uuid4(),
+                payload={
+                    "alumno_nombre": "Ana",
+                    "motivo": "Fixture",
+                    "fecha_inicio": "2026-03-01",
+                    "fecha_fin": "2026-03-02",
+                },
+            )
+        else:
+            db_session.add(
+                WorkflowRule(
+                    nombre="Other rule" if existing_state == "other_name" else startup_rule.nombre,
+                    tipo_evento_id=overdue.id if existing_state == "other_trigger" else event.id,
+                )
+            )
+        db_session.flush()
+        with pytest.raises(RuntimeError, match="refusing to dispatch historical work"):
+            module.seed_offline_workflow(db_session, school, reference)
+        events = db_session.scalars(select(EventLog)).all()
+        assert [entry.estado for entry in events] == (
+            ["pendiente"] if existing_state == "pending_event" else []
+        )
+        assert db_session.query(WorkflowExecution).count() == 0
+    assert db_session.get(WorkflowRule, startup_rule.id).activo
+    assert db_session.query(Notificacion).count() == 0
+
+
 def test_school_has_coherent_cohorts_and_does_not_duplicate(seed_module, db_session):
     db = db_session
     db.add_all(NivelEducativo(nombre=name) for name in seed_module.LEVELS)
