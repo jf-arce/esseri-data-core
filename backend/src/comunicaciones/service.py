@@ -464,7 +464,7 @@ def publicar_en_transaccion(
         from src.workflows.manuales_service import preparar_envios
 
         preparar_envios(db, c, destinatarios)
-    auditar(db, c, usuario, "estado", "borrador", "publicada")
+    auditar(db, c, usuario, "__alta__", None, "publicada")
 
 
 def retirar(db: Session, id: uuid.UUID, usuario: Usuario) -> None:

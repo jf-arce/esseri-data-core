@@ -98,7 +98,7 @@ def sin_publicacion(db):
         "publicadas": db.scalar(
             select(func.count())
             .select_from(AuditLog)
-            .where(AuditLog.campo == "estado", AuditLog.valor_nuevo == "publicada")
+            .where(AuditLog.campo == "__alta__", AuditLog.valor_nuevo == "publicada")
         ),
     }
 
