@@ -47,6 +47,7 @@ from src.asistente.mensajes_de_error import (
 )
 from src.asistente.models import MensajeAsistente
 from src.asistente.prompt import construir_prompt
+from src.asistente.respuestas_demo import RespuestaDemo, buscar_respuesta_demo
 from src.asistente.seudonimos_service import (
     FiltroAlias,
     alias_emitidos,
@@ -152,6 +153,11 @@ def generar_respuesta(
             hoy=fecha_operativa_argentina(),
             max_filas=settings.ASISTENTE_MAX_FILAS_RESULTADO,
         )
+        respuesta_demo = buscar_respuesta_demo(envio.texto_seguro, contexto)
+        if respuesta_demo is not None:
+            yield from _responder_demo(db, mensaje, respuesta_demo, solicitud_id)
+            return
+
         yield from _loop_con_herramientas(
             db, envio, contexto, mensaje, solicitud_id, transport, progreso
         )
@@ -208,6 +214,21 @@ def _responder_ambiguedad(
     yield _evento(solicitud_id, EVENTO_TEXTO, texto=texto)
     for bloque in bloques:
         yield _evento(solicitud_id, EVENTO_TARJETA, bloque=bloque)
+    yield _evento(solicitud_id, EVENTO_FIN, mensaje_id=str(mensaje.id))
+
+
+def _responder_demo(
+    db: Session, mensaje: MensajeAsistente, respuesta: RespuestaDemo, solicitud_id: str
+) -> Iterator[dict[str, Any]]:
+    yield _evento(solicitud_id, EVENTO_HERRAMIENTA, nombre=respuesta.herramienta)
+    for bloque in respuesta.bloques:
+        yield _evento(solicitud_id, EVENTO_TARJETA, bloque=bloque)
+    mensaje.contenido = respuesta.texto
+    mensaje.tool_calls = [{"nombre": respuesta.herramienta, "argumentos": {}}]
+    mensaje.tarjetas = list(respuesta.bloques)
+    mensaje.estado = ESTADO_MENSAJE_COMPLETO
+    db.commit()
+    yield _evento(solicitud_id, EVENTO_TEXTO, texto=respuesta.texto)
     yield _evento(solicitud_id, EVENTO_FIN, mensaje_id=str(mensaje.id))
 
 
