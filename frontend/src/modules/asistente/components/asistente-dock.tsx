@@ -45,7 +45,7 @@ export function AsistenteDock({ abierto }: { abierto: boolean }) {
 
   return (
     <aside
-      aria-label="Asistente"
+      aria-label="EsserIA"
       style={{ '--ancho-asistente': `${ancho}px` } as React.CSSProperties}
       hidden={!abierto}
       className="fixed inset-0 z-40 bg-superficie md:sticky md:inset-auto md:top-0 md:z-auto md:h-svh md:w-(--ancho-asistente) md:shrink-0"

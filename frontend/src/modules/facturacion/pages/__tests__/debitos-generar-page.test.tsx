@@ -338,7 +338,7 @@ describe('DebitosGenerarPage', () => {
 
     await waitFor(() =>
       expect(vi.mocked(generarRespuestaDebitos)).toHaveBeenCalledWith('lote-1', {
-        rechazosCantidad: 3,
+        rechazosCantidad: 5,
       }),
     )
     expect(vi.mocked(descargarArchivoDebitos)).toHaveBeenCalledWith({
@@ -370,6 +370,31 @@ describe('DebitosGenerarPage', () => {
       }),
     )
   })
+
+  it.each([
+    [28, 8],
+    [30, 10],
+  ])(
+    'con un lote de %i facturas acredita las primeras 20 y rechaza %i',
+    async (cantidad, rechazos) => {
+      const user = userEvent.setup()
+      vi.mocked(crearLoteDebitos).mockResolvedValueOnce({ ...lote, cantidad_facturas: cantidad })
+      renderPage()
+      await screen.findByText('F-2026-00001')
+
+      await user.click(screen.getByRole('checkbox', { name: 'Seleccionar F-2026-00001' }))
+      await user.click(await screen.findByRole('button', { name: 'Exportar 437 solicitudes' }))
+      await screen.findByText('Lote LD-2026-10-002 exportado')
+
+      await user.click(screen.getByRole('button', { name: 'Descargar respuesta del banco' }))
+
+      await waitFor(() =>
+        expect(vi.mocked(generarRespuestaDebitos)).toHaveBeenCalledWith('lote-1', {
+          rechazosCantidad: rechazos,
+        }),
+      )
+    },
+  )
 
   it('muestra la carga mientras espera las facturas', async () => {
     vi.mocked(listarFacturasElegiblesDebitos).mockImplementationOnce(
