@@ -64,11 +64,11 @@ Todas usan la contraseña de `ESSERI_DEMO_PASSWORD`.
 | `mariana.funes@esseri.test` | Dirección | Indicadores y auditoría |
 | `santiago.acosta@esseri.test` | Administrador del sistema | Workflows (armar la regla) y auditoría |
 | `alma.escobar@esseri.test` | Docente | Portal docente |
-| `elena.acuna@familias.esseri.test` | Familia con dos hijos: Alma Acuña (`A-0001`) y Bruno Acuña (`A-0021`) | **Los dos casos con una sola cuenta**: el débito de Alma sale acreditado y el de Bruno, rechazado por saldo insuficiente |
+| `elenaacunaesseri@gmail.com` | Familia con dos hijos: Alma Acuña (`A-0001`) y Bruno Acuña (`A-0021`) | **Los dos casos con una sola cuenta**: el débito de Alma sale acreditado y el de Bruno, rechazado por saldo insuficiente |
 | `felipe.acuna@familias.esseri.test` | Padre de Bruno (`A-0021`) | Ve a su hijo, pero no recibe los avisos de pago: el responsable económico es Elena |
 | `dante.ibarra@familias.esseri.test` | Familia (alumno Mateo Ibarra, `A-0029`) | Factura exportada sin resultado |
 
-Las demás cuentas de familia siguen el mismo patrón `nombre.apellido@familias.esseri.test`.
+Elena es la única cuenta con correo real (para probar la entrega). Las demás cuentas de familia siguen el patrón ficticio `nombre.apellido@familias.esseri.test`.
 
 ## Flujo de débitos en vivo
 
@@ -83,9 +83,9 @@ Las demás cuentas de familia siguen el mismo patrón `nombre.apellido@familias.
 
 4. Importar resultados, revisar y confirmar: 20 acreditados, 5 por saldo insuficiente y 3 con otros rechazos.
 5. Forzar el despachador con `POST /workflows/procesar` (autenticado) o esperar el intervalo configurado.
-6. Mostrar el portal de `elena.acuna` (llegan los dos avisos), luego Workflows → Ejecuciones, Comunicaciones y Auditoría.
+6. Mostrar el portal de Elena (`elenaacunaesseri@gmail.com`) (llegan los dos avisos), luego Workflows → Ejecuciones, Comunicaciones y Auditoría.
 
-Para ver el payload del email sin enviarlo, usar `presentacion_mail.py` (acepta solo direcciones `@familias.esseri.test`), con la misma mecánica que describe [institutional-demo.md](institutional-demo.md#show-the-generated-email-without-sending-it).
+Para ver el payload del email sin enviarlo, usar `presentacion_mail.py` (acepta solo direcciones `@familias.esseri.test` y el correo de Elena), con la misma mecánica que describe [institutional-demo.md](institutional-demo.md#show-the-generated-email-without-sending-it).
 
 ## Reglas de facturación
 

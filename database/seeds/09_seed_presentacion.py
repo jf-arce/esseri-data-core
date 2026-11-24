@@ -75,6 +75,8 @@ SECOND_GUARDIANS = 20  # segundo responsable de las primeras familias
 # Bruno Acuña (A-0021, primer débito rechazado) es hermano de Alma (A-0001, débito acreditado):
 # su familia es la de Elena Acuña, que ve los dos casos con una sola cuenta.
 SIBLING_REJECTED = 20
+# Única cuenta con correo real: recibe los avisos de débito para probar la entrega. El resto es ficticio.
+ELENA_ACUNA_EMAIL = "elenaacunaesseri@gmail.com"
 INACTIVE_STUDENTS = 4  # los últimos alumnos están dados de baja
 DEFAULT_HISTORY_BILLS = 983
 DEFAULT_HISTORY_PAYMENTS = 750
@@ -596,6 +598,8 @@ def _slug(texto: str) -> str:
 
 
 def email_de(owner: Persona, role: str) -> str:
+    if role == "familia" and (_slug(owner.nombre), _slug(owner.apellido)) == ("elena", "acuna"):
+        return ELENA_ACUNA_EMAIL
     dominio = "familias.esseri.test" if role == "familia" else "esseri.test"
     return f"{_slug(owner.nombre)}.{_slug(owner.apellido)}@{dominio}"
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TextIO
 
 MAX_BYTES = 256 * 1024
-RECIPIENT = re.compile(r"[a-z]+\.[a-z]+@familias\.esseri\.test")
+RECIPIENT = re.compile(r"[a-z]+\.[a-z]+@familias\.esseri\.test|elenaacunaesseri@gmail\.com")
 REQUIRED = {"destinatario", "asunto", "cuerpo"}
 
 
