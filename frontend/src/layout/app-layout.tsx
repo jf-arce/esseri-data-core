@@ -218,9 +218,9 @@ export function AppLayout() {
                 variant="ghost"
                 size="icon"
                 className="shrink-0 rounded-lg text-(--topbar-texto) hover:bg-(--topbar-hover) hover:text-(--topbar-texto-hover)"
-                aria-label="Asistente"
+                aria-label="EsserIA"
                 aria-pressed={asistenteAbierto}
-                title="Asistente (Ctrl+I)"
+                title="EsserIA (Ctrl+I)"
                 onClick={alternarAsistente}
               >
                 <SparklesIcon className="size-4.5" />

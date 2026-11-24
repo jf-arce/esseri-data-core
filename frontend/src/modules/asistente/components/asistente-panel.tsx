@@ -136,7 +136,7 @@ export function AsistentePanel({ abierto }: { abierto: boolean }) {
       <header className="relative z-10 flex h-16 shrink-0 items-center gap-2 border-b border-(--topbar-borde) bg-(--topbar) px-4 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-(--sidebar-header-lado)">
         <SparklesIcon className="size-4.5 text-(--topbar-texto-hover)" />
         <h2 className="flex-1 truncate text-sm font-semibold text-(--topbar-texto-hover)">
-          Asistente
+          EsserIA
         </h2>
         <Tooltip>
           <TooltipTrigger asChild>
