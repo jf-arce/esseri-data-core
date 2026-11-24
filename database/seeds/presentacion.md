@@ -42,6 +42,25 @@ python ../database/seeds/09_seed_presentacion.py
 
 Volver a correr el `09` sobre la misma base no hace nada. Para repetir el ensayo hay que borrar y recrear la base (`DROP DATABASE` y los pasos de arriba): el lote de débitos confirmado no se puede deshacer.
 
+### Cargarla en Railway (solo para la presentación)
+
+Alternativa a copiar la base con `pg_dump`: correr el seed por SSH dentro del backend, que ya aplicó las migraciones y los seeds `01`, `02` y `03` al arrancar. Con `ESSERI_DEMO_SEED_PERMITIR_REMOTO=true` el seed acepta un host, base y rol distintos de los locales. Siguen exigiéndose `ENVIRONMENT` en `development`, `ESSERI_DEMO_SEED_ENABLED=true` y la marca en la base.
+
+Desde **Copy SSH Command** del servicio `backend`, ya dentro del contenedor (las variables van solo en esa sesión, no se cambian en el servicio):
+
+```bash
+python - <<'PY'
+import os
+from sqlalchemy import create_engine, text
+with create_engine(os.environ["DATABASE_URL"]).begin() as c:
+    c.execute(text("COMMENT ON DATABASE railway IS 'esseri:disposable-presentacion:v1'"))
+PY
+ENVIRONMENT=development ESSERI_DEMO_SEED_ENABLED=true ESSERI_DEMO_SEED_PERMITIR_REMOTO=true \
+  ESSERI_DEMO_PASSWORD='<clave-de-cuentas>' python /database/seeds/09_seed_presentacion.py
+```
+
+Reemplazar `railway` por el nombre real de la base si es otro (`SELECT current_database()`). Es solo para una base de demo: marca la base como descartable y carga cuentas con una contraseña conocida. No se hace sobre una base con datos reales.
+
 ### Repetir el ensayo sin recargar los seeds
 
 `presentacion-copia.sh` guarda una copia de la base ya cargada y la restaura cuando hace falta. Usa la conexión de `backend/.env` como administrador de Postgres.

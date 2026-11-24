@@ -1692,16 +1692,21 @@ def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
         detectar_patrones(history, hoy=reference, usuario_id=school.admin.id)
 
 
-def validate_target(environment: str, database_url: str, enabled: str) -> None:
+def validate_target(
+    environment: str, database_url: str, enabled: str, allow_remote: bool = False
+) -> None:
     if environment.strip().lower() not in {"development", "test"} or enabled != "true":
         raise RuntimeError("Use development/test and ESSERI_DEMO_SEED_ENABLED=true.")
     url = make_url(database_url)
+    if url.get_backend_name() != "postgresql" or url.query:
+        raise RuntimeError("Only a plain PostgreSQL URL is allowed.")
+    if allow_remote:
+        # Solo para una base de demo en otro host (p. ej. Railway); la marca de la base se sigue exigiendo.
+        return
     if (
-        url.get_backend_name() != "postgresql"
-        or url.host not in {"127.0.0.1", "::1"}
+        url.host not in {"127.0.0.1", "::1"}
         or url.database != DATABASE
         or url.username != DATABASE
-        or url.query
     ):
         raise RuntimeError(
             f"Only a dedicated loopback PostgreSQL database/role {DATABASE} is allowed."
@@ -1772,7 +1777,10 @@ def main() -> None:
         if not 3 <= args.reference_date.month <= 11:
             raise RuntimeError("Choose a reference date within the March–November school term.")
         validate_target(
-            settings.ENVIRONMENT, settings.DATABASE_URL, os.getenv("ESSERI_DEMO_SEED_ENABLED", "")
+            settings.ENVIRONMENT,
+            settings.DATABASE_URL,
+            os.getenv("ESSERI_DEMO_SEED_ENABLED", ""),
+            os.getenv("ESSERI_DEMO_SEED_PERMITIR_REMOTO") == "true",
         )
         if os.getenv("PGHOSTADDR"):
             raise RuntimeError("Unset PGHOSTADDR; the demo must use the explicit loopback host.")
