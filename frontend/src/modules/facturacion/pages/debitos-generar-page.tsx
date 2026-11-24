@@ -39,6 +39,15 @@ const ESTADOS: { value: EstadoSeleccionDebitos; label: string }[] = [
 
 const TAMANIO_PAGINA = 10
 const MEDIO_DEMO: MedioDebito = 'cbu'
+// Simulación del banco: en lotes grandes se acreditan las primeras 20 facturas y el resto se
+// rechaza, así el resultado es siempre el mismo (en la demo, Alma acreditada y Bruno rechazado).
+const ACREDITADOS_SIMULADOS = 20
+
+function rechazosSimulados(cantidadFacturas: number) {
+  if (cantidadFacturas > ACREDITADOS_SIMULADOS) return cantidadFacturas - ACREDITADOS_SIMULADOS
+  // Lotes de hasta 3 facturas rechazan 1; los más grandes, hasta 3.
+  return cantidadFacturas <= 3 ? 1 : Math.min(3, cantidadFacturas)
+}
 
 function ResumenMetrica({
   etiqueta,
@@ -155,9 +164,7 @@ export function DebitosGenerarPage({ onIrAImportar }: DebitosGenerarPageProps) {
     setErrorAccion('')
     try {
       const archivo = await generarRespuestaDebitos(loteCreado.id, {
-        // Lotes de hasta 3 facturas rechazan 1; los más grandes, hasta 3.
-        rechazosCantidad:
-          loteCreado.cantidad_facturas <= 3 ? 1 : Math.min(3, loteCreado.cantidad_facturas),
+        rechazosCantidad: rechazosSimulados(loteCreado.cantidad_facturas),
       })
       descargarArchivoDebitos(archivo)
     } catch (reason) {
