@@ -728,8 +728,9 @@ def generar_respuesta(
         raise SolicitudCobranzaInvalida(
             "Las referencias de rechazo deben pertenecer a la solicitud sin repetirse."
         )
+    orden = orden_debitos(db, lote.id)
     if rechazos_cantidad is not None:
-        candidatos = [item.id for item in sorted(lote.items, key=lambda item: item.id)]
+        candidatos = sorted(ids, key=lambda debito_id: orden[debito_id], reverse=True)
         rechazos = list(
             dict.fromkeys(rechazos + candidatos[: min(rechazos_cantidad, len(candidatos))])
         )
@@ -737,13 +738,14 @@ def generar_respuesta(
         raise SolicitudCobranzaInvalida("La cantidad de rechazos supera los registros del lote.")
     rechazos_set = set(rechazos)
     fecha = fecha_operativa_argentina()
-    rechazados = [item for item in lote.items if item.id in rechazos_set]
+    rechazados = sorted(
+        (item for item in lote.items if item.id in rechazos_set), key=lambda item: orden[item.id]
+    )
     motivos = {
         item.id: formato.MOTIVOS_RECHAZO_SIMULADOS[indice % len(formato.MOTIVOS_RECHAZO_SIMULADOS)]
         for indice, item in enumerate(rechazados)
     }
     codigo = _codigo(lote)
-    orden = orden_debitos(db, lote.id)
     datos = {fila[0]: fila for fila in _filas_lote(db, lote.id)}
     filas = []
     for item in sorted(lote.items, key=lambda item: orden[item.id]):
