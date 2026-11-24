@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # Enable only after the correlated claim/result workflow has been published.
     N8N_MANUAL_HABILITADO: bool = False
     N8N_CALLBACK_BASE_URL: str = "http://backend:8000"
+    # Lista blanca opcional (emails separados por coma). Si se define, el despacho manual solo
+    # envía a esas direcciones y marca el resto como `sin_email`. Vacío = sin restricción.
+    N8N_SOLO_DESTINATARIOS: str = ""
     COMUNICACIONES_ADJUNTOS_HABILITADOS: bool = False
     CLAMAV_HOST: str = ""
     CLAMAV_PORT: int = 3310

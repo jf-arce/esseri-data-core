@@ -920,6 +920,10 @@ credentialing and publishing the correlated n8n export. `N8N_WEBHOOK_TOKEN` must
 nonempty shared secret; `N8N_CALLBACK_BASE_URL` is the backend address reachable by n8n.
 Keep this URL on a trusted deployment network (HTTPS if crossing hosts). A missing/manual
 transport configuration leaves email intentions durable; it never rolls back a publication.
+
+Optionally, `N8N_SOLO_DESTINATARIOS` (comma-separated emails) restricts dispatch to those
+addresses: any other pending intention is marked `sin_email` and never sent. Empty means no
+restriction; the Presentación compose override sets it to the single real demo account.
 Email-only publications do not appear in the family inbox; authenticated links still require
 their persisted responsible context and a currently enabled original student link.
 Transport submission is not mailbox delivery. Uncertain outcomes cannot be blindly retried.

@@ -1,12 +1,14 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import {
+  ArrowLeftIcon,
   BanknoteIcon,
   CalendarDaysIcon,
   DownloadIcon,
   FileTextIcon,
   MessageCircleIcon,
   PaperclipIcon,
+  SendIcon,
   XIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -16,6 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatearMoneda } from '@/modules/facturacion/utils'
@@ -176,9 +179,7 @@ function datosDelContexto(contexto: Contexto): DatoHeader[] {
 
 function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrarEstado: boolean }) {
   const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
-  const subtitulo = `Alumno: ${contexto.alumno_nombre}${
-    contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''
-  }`
+  const subtitulo = subtituloAlumno(contexto)
   const tituloTramite = contexto.concepto ?? TITULOS[contexto.tipo]
   const todos = datosDelContexto(contexto)
   const motivo = todos.find((dato) => dato.etiqueta === 'Motivo')
@@ -186,16 +187,16 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
   return (
     <section
       aria-label="Datos del trámite"
-      className="flex flex-col gap-4 rounded-[20px] border border-borde bg-superficie p-5 shadow-card"
+      className="flex shrink-0 flex-col gap-4 rounded-panel bg-superficie p-5 shadow-card"
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-3 xl:w-[19rem] xl:shrink-0">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-[13px] bg-violeta-suave text-violeta">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-violeta-suave text-violeta">
             <FileTextIcon aria-hidden="true" className="size-6" />
           </span>
           <div className="min-w-0">
-            <p className="text-[16px] font-semibold text-texto">{tituloTramite}</p>
-            <p className="truncate text-[13px] text-texto-2">{subtitulo}</p>
+            <p className="text-base font-semibold text-texto">{tituloTramite}</p>
+            <p className="truncate text-xs text-texto-2">{subtitulo}</p>
           </div>
         </div>
         {datos.map((dato) => {
@@ -206,15 +207,13 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
               className={cn('flex min-w-0 items-start gap-3', dato.crece && 'flex-1')}
             >
               {Icono && (
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-violeta-suave/60 text-violeta">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
                   <Icono aria-hidden="true" className="size-4.5" />
                 </span>
               )}
-              <div className={cn('min-w-0', !Icono && 'lg:pl-0')}>
-                <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">
-                  {dato.etiqueta}
-                </p>
-                <p className="text-[14px] font-semibold text-texto">{dato.valor}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium tracking-[.02em] text-texto-2">{dato.etiqueta}</p>
+                <p className="text-sm font-semibold text-texto">{dato.valor}</p>
               </div>
             </div>
           )
@@ -227,11 +226,63 @@ function ContextoCard({ contexto, mostrarEstado }: { contexto: Contexto; mostrar
       </div>
       {motivo && (
         <div className="border-t border-borde pt-3">
-          <p className="text-[12px] font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
-          <p className="text-[14px] text-texto">{motivo.valor}</p>
+          <p className="text-xs font-medium tracking-[.02em] text-texto-2">{motivo.etiqueta}</p>
+          <p className="text-sm text-texto">{motivo.valor}</p>
         </div>
       )}
     </section>
+  )
+}
+
+function subtituloAlumno(contexto: Contexto) {
+  return `Alumno: ${contexto.alumno_nombre}${contexto.alumno_curso ? ` (${contexto.alumno_curso})` : ''}`
+}
+
+// Encabezado del panel de conversaciones: va dentro de la misma tarjeta del chat.
+function EncabezadoPanel({
+  contexto,
+  mostrarEstado,
+  estadoHilo,
+  accion,
+}: {
+  contexto: Contexto
+  mostrarEstado: boolean
+  estadoHilo: ReactNode
+  accion: ReactNode
+}) {
+  const estado = contexto.estado_tramite ? ESTADO_TRAMITE[contexto.estado_tramite] : undefined
+  return (
+    <header
+      aria-label="Datos del trámite"
+      className="flex shrink-0 flex-col gap-1.5 border-b border-borde px-3 py-3 sm:px-5"
+    >
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <Button variant="ghost" size="icon-sm" asChild className="-ml-2 shrink-0 xl:hidden">
+          <Link to={rutaConversaciones(false)} aria-label="Volver a conversaciones">
+            <ArrowLeftIcon aria-hidden="true" />
+          </Link>
+        </Button>
+        <div className="min-w-40 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 className="text-base font-semibold text-texto">
+              {contexto.concepto ?? TITULOS[contexto.tipo]}
+            </h2>
+            {estado && mostrarEstado && <Badge variant={estado.variante}>{estado.texto}</Badge>}
+            {estadoHilo}
+          </div>
+          <p className="truncate text-xs text-texto-2">{subtituloAlumno(contexto)}</p>
+        </div>
+        {accion && <div className="ml-auto shrink-0">{accion}</div>}
+      </div>
+      <dl className="flex flex-wrap gap-x-5 gap-y-0.5 text-xs">
+        {datosDelContexto(contexto).map((dato) => (
+          <div key={dato.etiqueta} className="flex min-w-0 gap-1">
+            <dt className="text-texto-2">{dato.etiqueta}:</dt>
+            <dd className="font-medium text-texto">{dato.valor}</dd>
+          </div>
+        ))}
+      </dl>
+    </header>
   )
 }
 
@@ -240,7 +291,7 @@ function Avatar({ mensaje, propio }: { mensaje: Mensaje; propio: boolean }) {
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
+        'flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
         propio ? 'bg-violeta-suave text-violeta' : 'bg-fila-hover text-texto-2',
       )}
     >
@@ -263,16 +314,16 @@ function Adjuntos({
       {mensaje.adjuntos?.map((adjunto) => (
         <li
           key={adjunto.id}
-          className="flex items-center gap-3 rounded-[12px] border border-borde bg-superficie px-3 py-2"
+          className="flex items-center gap-3 rounded-card-sm border border-borde bg-superficie px-3 py-2"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-violeta-suave/60 text-violeta">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violeta-suave/60 text-violeta">
             <FileTextIcon aria-hidden="true" className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-texto">
+            <span className="block truncate text-xs font-semibold text-texto">
               {adjunto.nombre}
             </span>
-            <span className="block text-[12px] text-texto-2">
+            <span className="block text-xs text-texto-2">
               {adjunto.tipo_contenido.includes('pdf') ? 'PDF' : 'Imagen'} ·{' '}
               {tamano(adjunto.tamanio)}
             </span>
@@ -490,7 +541,6 @@ function Detalle({
   const gestion = hilo?.puede_gestionar ? (
     <Button
       variant="secondary"
-      className="rounded-full"
       disabled={ocupado}
       onClick={() =>
         void ejecutar(async (signal) => {
@@ -519,16 +569,31 @@ function Detalle({
 
   const conversacion = (
     <>
-      {contexto && (
+      {contexto && !enPanel && (
+        // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
+        // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
         <ContextoCard
           contexto={contexto}
-          // Con un hilo abierto, el estado que manda es el de la conversación (arriba a la
-          // derecha): no se repite otro badge de "Pendiente" en la tarjeta.
           mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
         />
       )}
-      <Card className="gap-0 rounded-[20px] border border-borde bg-superficie py-0 shadow-card">
-        <CardContent className="flex flex-col gap-4 px-5 pt-5 pb-5">
+      <Card
+        className={cn(
+          'gap-0 rounded-panel bg-superficie py-0 shadow-card',
+          enPanel && 'min-h-0 flex-1',
+        )}
+      >
+        {contexto && enPanel && (
+          <EncabezadoPanel
+            contexto={contexto}
+            mostrarEstado={!hilo || contexto.tipo === 'debito_cobranza'}
+            estadoHilo={estadoHilo}
+            accion={gestion}
+          />
+        )}
+        <CardContent
+          className={cn('flex flex-col gap-4 px-3 py-4 sm:px-5', enPanel && 'min-h-0 flex-1')}
+        >
           {cargando && <Skeleton className="h-24 w-full" />}
           {error && (
             <Alert role="alert">
@@ -536,22 +601,20 @@ function Detalle({
             </Alert>
           )}
           {!cargando && !hilo && puedeIniciar && (
-            <div className="flex flex-col items-center gap-2 py-8 text-center">
-              <span className="flex size-16 items-center justify-center rounded-full bg-violeta-suave text-violeta">
-                <MessageCircleIcon aria-hidden="true" className="size-7" />
-              </span>
-              <h2 className="text-[19px] font-semibold text-texto">
-                Todavía no hay una conversación sobre {referencia}
-              </h2>
-              <p className="max-w-md text-[15px] text-texto-2">
+            <Empty className="py-8">
+              <EmptyMedia variant="icon" className="bg-violeta-suave text-violeta">
+                <MessageCircleIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>Todavía no hay una conversación sobre {referencia}</EmptyTitle>
+              <EmptyDescription>
                 Escribí tu consulta para comunicarte con Administración.
-              </p>
-            </div>
+              </EmptyDescription>
+            </Empty>
           )}
           {hilo && historial.siguiente && (
             <Button
               variant="secondary"
-              className="self-start rounded-full"
+              className="self-start"
               disabled={ocupado}
               onClick={() =>
                 void ejecutar(async (signal) => {
@@ -591,7 +654,10 @@ function Detalle({
                 const caja = evento.currentTarget
                 alFinal.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 48
               }}
-              className="max-h-[min(60vh,36rem)] overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta"
+              className={cn(
+                'overflow-y-auto overscroll-contain pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violeta',
+                enPanel ? 'min-h-0 flex-1' : 'max-h-[min(60vh,36rem)]',
+              )}
             >
               <ol className="flex flex-col">
                 {historial.items.map((mensaje, indice) => {
@@ -607,7 +673,7 @@ function Detalle({
                           className="mt-4 flex justify-center first:mt-0"
                           aria-label={`Mensajes del ${fechaLarga(mensaje.created_at)}`}
                         >
-                          <span className="rounded-full bg-fila-hover px-3 py-1 text-[12px] font-medium text-texto-2">
+                          <span className="rounded-md bg-fila-hover px-3 py-1 text-xs font-medium text-texto-2">
                             {fechaLarga(mensaje.created_at)}
                           </span>
                         </li>
@@ -631,7 +697,7 @@ function Detalle({
                           )}
                         >
                           {!agrupado && (
-                            <p className="mb-1 text-[12px] text-texto-2">
+                            <p className="mb-1 text-xs text-texto-2">
                               <strong className="font-semibold text-texto">{mensaje.autor}</strong>
                               {' · '}
                               <time dateTime={mensaje.created_at}>
@@ -641,7 +707,7 @@ function Detalle({
                           )}
                           <div
                             className={cn(
-                              'w-full rounded-[14px] px-3.5 py-3 text-[14px] text-texto',
+                              'w-full rounded-card-sm px-3.5 py-3 text-sm text-texto',
                               esPropio ? 'bg-violeta-suave' : 'bg-fila-hover',
                             )}
                           >
@@ -666,8 +732,8 @@ function Detalle({
           )}
         </CardContent>
         {puedeEnviar && (
-          <CardFooter className="border-t border-borde px-5 py-4">
-            <form onSubmit={enviar} className="flex w-full flex-col gap-3">
+          <CardFooter className="shrink-0 border-t border-borde px-3 py-3 sm:px-5">
+            <form onSubmit={enviar} className="flex w-full flex-col gap-2">
               <label htmlFor="mensaje-contextual" className="sr-only">
                 Mensaje
               </label>
@@ -677,7 +743,11 @@ function Detalle({
                 maxLength={5000}
                 disabled={ocupado}
                 placeholder={familia ? 'Escribí tu mensaje...' : 'Escribí una respuesta...'}
-                className="min-h-20 rounded-[12px] border-borde bg-superficie text-[14px]"
+                rows={2}
+                className={cn(
+                  'resize-none rounded-card-sm border-borde bg-superficie text-sm',
+                  'min-h-16',
+                )}
                 onChange={(evento) => {
                   clave.current = null
                   setTexto(evento.target.value)
@@ -688,13 +758,13 @@ function Detalle({
                   {archivos.map((archivo) => (
                     <li
                       key={`${archivo.name}-${archivo.lastModified}`}
-                      className="flex items-center gap-2 rounded-full bg-violeta-suave/60 py-1 pr-1 pl-3 text-[12px] text-texto"
+                      className="flex items-center gap-2 rounded-lg bg-violeta-suave/60 py-1 pr-1 pl-3 text-xs text-texto"
                     >
                       <span className="max-w-52 truncate">{archivo.name}</span>
                       <button
                         type="button"
                         aria-label={`Quitar ${archivo.name}`}
-                        className="flex size-6 items-center justify-center rounded-full text-texto-2 hover:bg-superficie"
+                        className="flex size-6 items-center justify-center rounded-md text-texto-2 hover:bg-superficie"
                         onClick={() => {
                           clave.current = null
                           setArchivos((actual) => actual.filter((item) => item !== archivo))
@@ -738,25 +808,35 @@ function Detalle({
                       <Button
                         type="button"
                         variant="secondary"
-                        className="rounded-[10px]"
+                        className="rounded-lg"
                         disabled={ocupado}
                         onClick={() => selectorArchivos.current?.click()}
                       >
                         <PaperclipIcon aria-hidden="true" className="size-4" />
                         Adjuntar archivo
                       </Button>
-                      <span className="text-[12px] text-texto-2">{CANAL_ADJUNTOS}</span>
+                      <span className={cn('text-xs text-texto-2', enPanel && 'hidden 2xl:inline')}>
+                        {CANAL_ADJUNTOS}
+                      </span>
                     </>
                   )}
                 </div>
-                <Button
-                  type="submit"
-                  disabled={ocupado || !texto.trim()}
-                  className={familia ? PORTAL_PRIMARY_BUTTON_CLASS : undefined}
-                >
-                  {familia ? 'Enviar mensaje' : 'Enviar respuesta'}
-                </Button>
+                {!enPanel && (
+                  <Button
+                    type="submit"
+                    disabled={ocupado || !texto.trim()}
+                    className={familia ? PORTAL_PRIMARY_BUTTON_CLASS : undefined}
+                  >
+                    {familia ? 'Enviar mensaje' : 'Enviar respuesta'}
+                  </Button>
+                )}
               </div>
+              {enPanel && (
+                <Button type="submit" className="w-full" disabled={ocupado || !texto.trim()}>
+                  <SendIcon aria-hidden="true" />
+                  Enviar respuesta
+                </Button>
+              )}
             </form>
           </CardFooter>
         )}
@@ -782,30 +862,27 @@ function Detalle({
       </section>
     )
   return (
-    <section className={cn('flex w-full flex-col gap-4', !enPanel && 'mx-auto max-w-[1100px]')}>
-      {enPanel && (
-        <Link
-          to={rutaConversaciones(false)}
-          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-violeta xl:hidden"
-        >
-          ← Volver a conversaciones
-        </Link>
+    <section
+      className={cn(
+        'flex w-full flex-col',
+        enPanel ? 'h-full min-h-0 gap-3' : 'mx-auto max-w-[1100px] gap-4',
       )}
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">{titulo}</h1>
-          <p className="text-texto-2">{descripcion}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {estadoHilo}
-          {gestion}
-          {!enPanel && (
+    >
+      {!enPanel && (
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold">{titulo}</h1>
+            <p className="text-texto-2">{descripcion}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {estadoHilo}
+            {gestion}
             <Button variant="secondary" asChild>
               <Link to={destino}>Volver al trámite</Link>
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
       {conversacion}
     </section>
   )
