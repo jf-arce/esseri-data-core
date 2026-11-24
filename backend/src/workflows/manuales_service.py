@@ -305,6 +305,7 @@ def procesar_envios_pendientes(db: Session, limite: int = 50) -> ResumenEnviosMa
     if not _despacho_manual_habilitado():
         return resumen
 
+    _descartar_fuera_de_lista_blanca(db)
     ahora = ahora_utc()
     ids = list(
         db.scalars(
@@ -326,6 +327,27 @@ def procesar_envios_pendientes(db: Session, limite: int = 50) -> ResumenEnviosMa
             continue
         resumen = _acumular(resumen, _procesar_uno(db, envio_id, intento_id))
     return resumen
+
+
+def _descartar_fuera_de_lista_blanca(db: Session) -> None:
+    """Con `N8N_SOLO_DESTINATARIOS` definida, los pendientes a otras direcciones no se envían."""
+
+    permitidos = {
+        _normalizar_email(email)
+        for email in settings.N8N_SOLO_DESTINATARIOS.split(",")
+        if _normalizar_email(email)
+    }
+    if not permitidos:
+        return
+    db.execute(
+        update(EnvioNotificacion)
+        .where(
+            EnvioNotificacion.estado == "pendiente",
+            func.lower(EnvioNotificacion.email).not_in(permitidos),
+        )
+        .values(estado="sin_email")
+    )
+    db.commit()
 
 
 def _vinculo_vigente(db: Session, envio: EnvioNotificacion) -> bool:

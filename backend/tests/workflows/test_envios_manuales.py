@@ -212,6 +212,38 @@ def test_preparar_envios_es_idempotente_y_marca_sin_email(
     assert sin_email.estado == "sin_email"
 
 
+def test_lista_blanca_solo_despacha_a_los_permitidos(
+    db_session, comunicacion, escenario_dos_familias, manual_habilitado, monkeypatch
+):
+    monkeypatch.setattr(settings, "N8N_SOLO_DESTINATARIOS", " Permitido@Gmail.com , otro@x.org")
+    for familia, email in (
+        (escenario_dos_familias["familia_a"], "permitido@gmail.com"),
+        (escenario_dos_familias["familia_c"], "ficticio@familias.esseri.test"),
+    ):
+        manuales_service._crear_intento_si_falta(
+            db_session, comunicacion.id, familia, email, "Aviso", "Hola"
+        )
+    _recibo(
+        db_session,
+        comunicacion,
+        escenario_dos_familias["familia_a"],
+        [escenario_dos_familias["alumno_a"]],
+    )
+    destinatarios = []
+
+    def enviar(destinatario, _asunto, _texto, _html, **_kwargs):
+        destinatarios.append(destinatario)
+        return _ack("reintentable", error="test")
+
+    monkeypatch.setattr(n8n_client, "enviar_email_manual", enviar)
+    manuales_service.procesar_envios_pendientes(db_session)
+
+    assert destinatarios == ["permitido@gmail.com"]
+    estados = {envio.email: envio.estado for envio in _envios(db_session, comunicacion)}
+    assert estados["ficticio@familias.esseri.test"] == "sin_email"
+    assert estados["permitido@gmail.com"] != "sin_email"
+
+
 @pytest.mark.parametrize("nombres", [["documento.pdf"], ["documento.pdf", "<imagen>.png"]])
 def test_preparar_envios_avisa_cuando_hay_adjuntos(
     db_session, comunicacion, escenario_dos_familias, manual_habilitado, monkeypatch, nombres
