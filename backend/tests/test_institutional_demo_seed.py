@@ -80,17 +80,20 @@ def test_presentation_records_attendance_each_week_within_enrollment(
     }
 
 
-def test_presentation_bills_past_school_months_without_changing_live_batch(
-    presentation_school, db_session
-):
+@pytest.fixture
+def presentation_billing(presentation_school, db_session):
+    module, school, reference = presentation_school
+    module.seed_finance(db_session, school, reference)
+    return reference.replace(day=1)
+
+
+def test_presentation_bills_past_school_months(presentation_billing, db_session):
     from collections import defaultdict
     from decimal import Decimal
 
-    module, school, reference = presentation_school
-    module.seed_finance(db_session, school, reference)
     observed = defaultdict(set)
     for bill in db_session.scalars(select(Factura)):
-        if bill.fecha_emision < reference.replace(day=1):
+        if bill.fecha_emision < presentation_billing:
             paid = sum((payment.monto for payment in bill.pagos), Decimal(0))
             classification = (
                 "partial" if 0 < paid < bill.monto_total else "paid" if paid else "overdue"
@@ -100,9 +103,6 @@ def test_presentation_bills_past_school_months_without_changing_live_batch(
         date(2026, month, 1) for month in range(3, 11)
     }
     assert observed == dict.fromkeys(expected, {"partial", "paid", "overdue"})
-    live = db_session.execute(select(Factura, FacturaCobranzaDemo).join(FacturaCobranzaDemo)).all()
-    assert {metadata.numero for _, metadata in live} == {f"F-202611-{i:04}" for i in range(1, 31)}
-    assert all(bill.estado == "pendiente" and not bill.pagos for bill, _ in live)
     assert (
         db_session.query(Movimiento).filter_by(tipo="debe").count()
         == db_session.query(Factura).count()
@@ -111,6 +111,47 @@ def test_presentation_bills_past_school_months_without_changing_live_batch(
         db_session.query(Movimiento).filter_by(tipo="haber").count()
         == db_session.query(Pago).count()
     )
+
+
+def test_presentation_reference_month_contains_only_the_thirty_debit_invoices(
+    presentation_billing, db_session
+):
+    live = db_session.execute(
+        select(Factura, FacturaCobranzaDemo)
+        .outerjoin(FacturaCobranzaDemo)
+        .where(
+            Factura.fecha_emision >= presentation_billing, Factura.fecha_emision < date(2026, 12, 1)
+        )
+    ).all()
+    assert len(live) == 30
+    assert all(metadata is not None for _, metadata in live)
+    assert {metadata.numero for _, metadata in live} == {f"F-202611-{i:04}" for i in range(1, 31)}
+    assert all(bill.estado == "pendiente" and not bill.pagos for bill, _ in live)
+
+
+def test_presentation_debit_students_have_no_historical_invoice_debt(
+    presentation_billing, db_session
+):
+    from sqlalchemy.orm import selectinload
+
+    participants = (
+        select(Inscripcion.alumno_id)
+        .join(Factura, Factura.inscripcion_id == Inscripcion.id)
+        .join(FacturaCobranzaDemo)
+        .where(FacturaCobranzaDemo.periodo == "2026-11")
+    )
+    history = db_session.execute(
+        select(Factura, Inscripcion.alumno_id)
+        .join(Inscripcion)
+        .where(
+            Inscripcion.alumno_id.in_(participants), Factura.fecha_emision < presentation_billing
+        )
+        .options(selectinload(Factura.pagos))
+    ).all()
+    assert len({student_id for _, student_id in history}) == 30
+    for bill, _ in history:
+        assert bill.estado == "pagada"
+        assert sum(payment.monto for payment in bill.pagos) == bill.monto_total
 
 
 @pytest.mark.parametrize(
