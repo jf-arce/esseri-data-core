@@ -27,7 +27,7 @@ Levanta 4 servicios en la misma red interna:
 **Demo del 10/11:** el paso a paso para dejarla andando en una notebook, con los scripts que
 preparan, verifican y restauran el entorno, está en [`infra/demo.md`](demo.md).
 
-**Base de la presentación:** `docker-compose.presentacion.yml` es un override que apunta el backend a la base descartable de la presentación (ver `database/seeds/presentacion.md`). La URL no está en el repo: cada integrante define `PRESENTACION_DATABASE_URL` en su shell o en `infra/.env`.
+**Base de la presentación:** `docker-compose.presentacion.yml` es un override que apunta el backend a la base descartable de la presentación (ver `database/seeds/presentacion.md`). La URL no está en el repo: cada integrante define `PRESENTACION_DATABASE_URL` en su shell o en `infra/.env`. El override también activa `N8N_MANUAL_HABILITADO` para que el backend despache los emails por n8n y limita el envío con `N8N_SOLO_DESTINATARIOS` a la cuenta real de Elena (el resto de las familias es ficticio y queda como `sin_email`); el workflow `enviar-email.json` y la credencial de Gmail se cargan una vez por instancia (ver `n8n/README.md`).
 
 ```bash
 cd infra

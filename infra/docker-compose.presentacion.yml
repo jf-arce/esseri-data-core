@@ -4,3 +4,7 @@ services:
   backend:
     environment:
       DATABASE_URL: ${PRESENTACION_DATABASE_URL:?definir PRESENTACION_DATABASE_URL}
+      # Despacha los emails por n8n (en el resto de los entornos queda apagado por defecto).
+      N8N_MANUAL_HABILITADO: "true"
+      # Solo la cuenta real de Elena recibe mails; el resto de las familias es ficticio.
+      N8N_SOLO_DESTINATARIOS: elenaacunaesseri@gmail.com
