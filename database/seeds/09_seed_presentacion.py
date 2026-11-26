@@ -66,8 +66,8 @@ NAMESPACE = uuid.UUID("333bd0b8-251d-4265-805d-08eaf7d905fc")
 REFERENCE = date(2026, 11, 18)
 DATABASE = "esseri_presentacion"
 MARKER = "esseri:disposable-presentacion:v1"
-# Historical bills and receipts produced by the documented default reference date.
 HISTORICAL_OVERDUE_EVENTS = 6
+HISTORICAL_ESCALATION_DAYS = 120
 # Matrícula: cada alumno tiene una familia principal; los últimos son hermanos de las primeras.
 STUDENTS = 420
 FAMILIES = 340  # familias principales (una por alumno hasta acá)
@@ -78,8 +78,7 @@ SIBLING_REJECTED = 20
 # Única cuenta con correo real: recibe los avisos de débito para probar la entrega. El resto es ficticio.
 ELENA_ACUNA_EMAIL = "elenaacunaesseri@gmail.com"
 INACTIVE_STUDENTS = 4  # los últimos alumnos están dados de baja
-DEFAULT_HISTORY_BILLS = 983
-DEFAULT_HISTORY_PAYMENTS = 750
+HISTORICAL_PAYMENT_PERCENT = 76
 # Response split for the 28 rendered invoices: 20 approved, five insufficient funds, three other.
 APPROVED_OPERATIONS = 20
 INSUFFICIENT_FUNDS_OPERATIONS = 5
@@ -644,6 +643,25 @@ def payer_family(i: int) -> int:
     return 0 if i == SIBLING_REJECTED else i % FAMILIES
 
 
+def enrollment_date(index: int, cycle: int, reference: date) -> date:
+    if cycle > reference.year:
+        return reference - timedelta(days=7)
+    # Keep the debit showcase's cohort enrolled for the entire term.
+    if index < 30:
+        return min(date(cycle, 3, 2), reference)
+    month = 4 + index % 2 if index % 17 == 0 else 1 + index % 3
+    day = 1 if month > 3 else 2 + index % 20
+    return min(date(cycle, month, day), reference)
+
+
+def term_end(registration: Inscripcion, reference: date) -> date:
+    cycle = int(registration.ciclo_lectivo)
+    end = reference if cycle == reference.year else date(cycle, 11, 28)
+    if registration.estado == "baja":
+        return min(end, date(cycle, 7, 31))
+    return end
+
+
 def seed_school(db: Session, reference: date, password: str) -> School | None:
     from src.auth.sesion_service import hashear_password
 
@@ -765,13 +783,7 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
             ):
                 continue
             cycle = reference.year + delta
-            registered = (
-                date(cycle, 3, 2)
-                if delta < 0
-                else min(date(cycle, 3, 2), reference)
-                if delta == 0
-                else reference - timedelta(days=7)
-            )
+            registered = enrollment_date(i, cycle, reference)
             status = (
                 "finalizada"
                 if delta == -1
@@ -796,13 +808,16 @@ def seed_school(db: Session, reference: date, password: str) -> School | None:
         if delta > 0:
             continue
         cycle = int(registration.ciclo_lectivo)
-        end = reference if delta == 0 else date(cycle, 11, 28)
-        if registration.estado == "baja":
-            end = min(end, date(cycle, 7, 31))
-        start = date(cycle, 3, 2)
-        # March through November, sampled fortnightly, plus the reference school week.
-        # Days stay inside the enrollment window even for a reference date near March 2.
-        days = {start + timedelta(days=offset) for offset in range(0, (end - start).days + 1, 13)}
+        end = term_end(registration, reference)
+        start = max(date(cycle, 3, 2), registration.fecha_inscripcion)
+        first_weekday = start
+        if start.weekday() >= 5:
+            first_weekday += timedelta(days=7 - start.weekday())
+        # One attendance snapshot each school week, plus denser coverage near the reference date.
+        days = {
+            first_weekday + timedelta(days=offset)
+            for offset in range(0, (end - first_weekday).days + 1, 7)
+        }
         days.update(end - timedelta(days=offset) for offset in range(5))
         days = {day for day in days if start <= day <= end}
         for day in sorted(days):
@@ -940,15 +955,17 @@ def seed_finance(db: Session, school: School, reference: date) -> None:
         if delta > 0:
             continue
         year = int(registration.ciclo_lectivo)
-        for month in (10,) if delta < 0 else (3, 6, 7):
+        first_period = registration.fecha_inscripcion.replace(day=1)
+        last_day = term_end(registration, reference)
+        for month in range(3, 12):
             emitted = date(year, month, 1)
-            if emitted < current:
+            if first_period <= emitted <= last_day and emitted < current:
                 history.append((i, registration, emitted))
     # Protagonists start with no historical debt. The rest use a repeatable mixed pattern.
     ranked = sorted(history, key=lambda row: (row[0] < 30, (row[0] * 41 + row[2].month) % 113))
-    # The default reference date produces DEFAULT_HISTORY_BILLS historical bills; paying the
-    # same share on another date keeps the documented 750 receipts only for that default run.
-    paid_count = len(ranked) * DEFAULT_HISTORY_PAYMENTS // DEFAULT_HISTORY_BILLS
+    paid_count = max(
+        sum(i < 30 for i, _, _ in history), len(ranked) * HISTORICAL_PAYMENT_PERCENT // 100
+    )
     paid_keys = {(i, day) for i, _, day in ranked[len(ranked) - paid_count :]}
     debts: dict[int, str] = {}
     bills = []
@@ -1606,14 +1623,26 @@ def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
     from src.workflows.reglas_service import crear_regla, nodos_de_regla_simple
     from src.workflows.schemas import WorkflowRuleCreate
 
-    # The dispatcher has a broad recovery pass. Never run it against existing rules,
-    # events, or outbound notification state, even in a marked demo database.
-    for model in (EventLog, Notificacion, WorkflowExecution, WorkflowRule):
+    # Recovery is global: an unrelated event or pending delivery must never be processed here.
+    for model in (EventLog, Notificacion, WorkflowExecution):
         if db.scalar(select(model.id).limit(1)):
             raise RuntimeError("Workflow data is not empty; refusing to dispatch historical work.")
+    revocation = import_module("06_seed_aviso_revocacion")
+    rules = db.execute(
+        select(WorkflowRule.nombre, TipoEvento.nombre)
+        .outerjoin(TipoEvento, TipoEvento.id == WorkflowRule.tipo_evento_id)
+        .limit(2)
+    ).all()
+    # The dispatcher matches by event type, so the startup revocation rule cannot run for
+    # the invoice-overdue events seeded below. Reject every other rule, including duplicates.
+    if rules and rules != [(revocation.REGLA["nombre"], revocation.EVENTO)]:
+        raise RuntimeError("Workflow data is not empty; refusing to dispatch historical work.")
     sources = db.scalars(
         select(Factura)
-        .where(Factura.estado == "vencida")
+        .where(
+            Factura.estado == "vencida",
+            Factura.fecha_vencimiento < reference - timedelta(days=HISTORICAL_ESCALATION_DAYS),
+        )
         .order_by(Factura.fecha_vencimiento.desc(), Factura.id)
         .limit(HISTORICAL_OVERDUE_EVENTS)
     ).all()
@@ -1651,7 +1680,11 @@ def seed_offline_workflow(db: Session, school: School, reference: date) -> None:
                     nombre="Escalamiento de mora a Dirección",
                     tipo_evento_id=event_id,
                     nodos=nodos_de_regla_simple(
-                        condicion={"campo": "dias_vencido", "operador": ">", "valor": 120},
+                        condicion={
+                            "campo": "dias_vencido",
+                            "operador": ">",
+                            "valor": HISTORICAL_ESCALATION_DAYS,
+                        },
                         tipo_accion="escalar_caso",
                         accion_config={
                             "motivo": "La factura de {{nombre_familia}} lleva más de 120 días "
